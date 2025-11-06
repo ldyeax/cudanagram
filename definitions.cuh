@@ -1,0 +1,1 @@
+#define NUM_LETTERS_IN_ALPHABET 26
