@@ -1,5 +1,5 @@
-#include "definitions.cuh"
-#include "dictionary.cuh"
+#include "definitions.hpp"
+#include "dictionary.hpp"
 #include "avx.hpp"
 #include <stdint.h>
 #include <cstdint>
@@ -7,7 +7,7 @@
 #include <string.h>
 
 using namespace dictionary;
-
+#ifdef __CUDACC__
 __device__ frequency_map::Result dictionary::Dictionary::d_compareFrequencyMaps_pip(
 	frequency_map::FrequencyMap* input,
 	FrequencyMapIndex_t other_index,
@@ -31,6 +31,7 @@ __device__ frequency_map::Result dictionary::Dictionary::d_compareFrequencyMaps_
 	}
 	return ret;
 }
+#endif
 
 __host__ frequency_map::Result dictionary::Dictionary::h_compareFrequencyMaps_pip(
 	frequency_map::FrequencyMap* input,

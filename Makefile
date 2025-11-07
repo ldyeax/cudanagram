@@ -6,8 +6,10 @@ TEST_AVX = test_avx
 TEST_AVX_SRC = test_avx.cpp
 AVX_SRC = avx.cpp
 AVX_O = avx.o
+DB_SRC = database.cpp
+DB_O = database.o
 AVX_2 = $(GPP_FLAGS) -c $(AVX_SRC)
-
+DB_2 = $(GPP_FLAGS) -c $(DB_SRC)
 CC = nvcc
 CFLAGS = --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -arch=native -std=c++20
 LDFLAGS = -lncurses -ltinfo -lpqxx -lpq
@@ -38,12 +40,13 @@ clean:
 	rm -f $(AVX_O)
 
 avx_test:
-	$(GPP) $(AVX_2)
-	$(GPP) $(GPP_FLAGS) -o $(TEST_AVX) $(TEST_AVX_SRC)
+	$(GPP) $(AVX_2) $(LDFLAGS)
+	$(GPP) $(GPP_FLAGS) -o $(TEST_AVX) $(TEST_AVX_SRC) $(LDFLAGS)
 
 capabilities_test:
 	$(CC) $(CFLAGS) -o capabilities_test capabilities_test.cu $(LDFLAGS)
 
 database_test:
-	$(GPP) $(AVX_2)
-	$(CC) $(CFLAGS) -o $(TEST_DB) $(CUFILES) $(CPPFILES) $(TEST_DB_SRC) $(LDFLAGS)
+	$(GPP) $(AVX_2) $(LDFLAGS)
+	$(GPP) $(DB_2) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $(TEST_DB) $(CUFILES) $(TEST_DB_SRC) $(LDFLAGS)

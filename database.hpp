@@ -1,7 +1,7 @@
 #pragma once
 #include <cstring>
 #include <stdio.h>
-#include "job.cuh"
+#include "job.hpp"
 #include <string>
 
 namespace database {

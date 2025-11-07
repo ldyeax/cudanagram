@@ -1,4 +1,4 @@
-#include "database.cuh"
+#include "database.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <string>

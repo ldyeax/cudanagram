@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <stdint.h>
-#include "definitions.cuh"
-#include "dictionary.cuh"
+#include "definitions.hpp"
+#include "dictionary.hpp"
 #define JobID_t int64_t
 namespace job {
 	struct Job {

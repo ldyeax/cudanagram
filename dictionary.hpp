@@ -1,4 +1,4 @@
-#include "definitions.cuh"
+#include "definitions.hpp"
 #include <stdint.h>
 #include <cstdint>
 
@@ -19,11 +19,13 @@ namespace dictionary {
 		};
 	}
 	class Dictionary {
+#ifdef __CUDACC__
 		__device__ frequency_map::Result d_compareFrequencyMaps_pip(
 			frequency_map::FrequencyMap* input,
 			FrequencyMapIndex_t other_index,
 			frequency_map::FrequencyMap* output
 		);
+#endif
 		__host__ frequency_map::Result h_compareFrequencyMaps_pip(
 			frequency_map::FrequencyMap* input,
 			FrequencyMapIndex_t other_index,
@@ -33,4 +35,5 @@ namespace dictionary {
 			FrequencyMapIndex_t other_index
 		);
 	};
+
 }
