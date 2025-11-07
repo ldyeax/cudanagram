@@ -1,7 +1,7 @@
 #pragma once
 #include <utility>
 #include <cstdint>
-#include <immintrin.h>
+//#include <immintrin.h>
 namespace avx {
 	struct Result {
 		bool any_negative;

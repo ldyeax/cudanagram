@@ -1,5 +1,6 @@
-#include <stdint.h>
 #include "definitions.cuh"
+#include <stdint.h>
+#include <cstdint>
 
 #define FrequencyMapIndex_t int32_t
 
@@ -7,6 +8,9 @@ namespace dictionary {
 	namespace frequency_map {
 		struct FrequencyMap {
 			char frequencies[NUM_LETTERS_IN_ALPHABET];
+			__device__ __host__ operator int8_t*() {
+				return (int8_t*)&frequencies[0];
+			}
 		};
 		enum Result {
 			no_match = 0,
@@ -25,8 +29,8 @@ namespace dictionary {
 			FrequencyMapIndex_t other_index,
 			frequency_map::FrequencyMap* output
 		);
-		__device__ __host__ getFrequencyMapPointer(
+		__device__ __host__ frequency_map::FrequencyMap* getFrequencyMapPointer(
 			FrequencyMapIndex_t other_index
 		);
-	}
+	};
 }

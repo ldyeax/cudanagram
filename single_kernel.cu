@@ -12,7 +12,7 @@ dictionary::frequency_map::FrequencyMapIndex_t start;
 }
 
  */
-
+/*
 using namespace kernels;
 
 __device__ inline d_processJobIndex(
@@ -75,3 +75,4 @@ __global__ d_processJobsWithThreads(
 		d_dictionary,
 		d_input + threadIdx.x,
 
+*/
