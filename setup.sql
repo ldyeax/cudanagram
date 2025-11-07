@@ -1,4 +1,3 @@
-\set dbname cudanagram_test
 
 CREATE DATABASE :dbname;
 \c :dbname;
@@ -12,5 +11,5 @@ CREATE TABLE job (
 	start		INTEGER
 );
 CREATE TABLE found_sentences (
-	frequency_map_indices	BYTEA NOT NULL;
+	frequency_map_indices	BYTEA NOT NULL
 );
