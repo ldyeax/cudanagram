@@ -1,5 +1,9 @@
 #include "database.hpp"
+#include <stdio.h>
+#include <iostream>
 int main()
 {
-	database::Database mydb();
+	std::cout << "Testing db: " << std::endl;
+	database::Database mydb = database::Database();
+	std::cout << "Done" << std::endl;
 }

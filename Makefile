@@ -30,7 +30,8 @@ CPPFILES := $(filter-out $(TEST_AVX_SRC), $(CPPFILES))
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(GPP) $(GPP_FLAGS) -o $(AVX_O) $(AVX_SRC)
+	$(GPP) $(GPP_FLAGS) -o $(AVX_O) $(AVX_SRC) $(LDFLAGS)
+	$(GPP) $(GPP_FLAGS) -o $(DB_O) $(DB_SRC) $(LDFLAGS)
 	$(CC) $(CFLAGS)  -o $@ $^ $(LDFLAGS)
 
 clean:
@@ -49,4 +50,4 @@ capabilities_test:
 database_test:
 	$(GPP) $(AVX_2) $(LDFLAGS)
 	$(GPP) $(DB_2) $(LDFLAGS)
-	$(CC) $(CFLAGS) -o $(TEST_DB) $(CUFILES) $(TEST_DB_SRC) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(DB_O) $(AVX_O) -o $(TEST_DB) $(CUFILES) $(TEST_DB_SRC) $(LDFLAGS)
