@@ -7,7 +7,7 @@
 // - "CUDA cores" (SPs) per SM are architecture-dependent and not an official API.
 //   The table below is a best-effort mapping for common architectures.
 
-#include <cuda_runtime.h>
+//##include <cuda_runtime.h>
 #include <iostream>
 #include <iomanip>
 #include <vector>
