@@ -29,7 +29,7 @@ Database::Database()
 	pqxx::work txn{c};
 	int8_t test_fm[NUM_LETTERS_IN_ALPHABET] = {1, 2, 3, 0};
 	pqxx::binarystring freq_bin(test_fm, sizeof(test_fm));
-	PQXX::RESULT R = TXN.EXEC_PARAMS(
+	pqxx::result r = txn.exec_params(
 		"INSERT INTO job (parent_job_id, frequency_map, start) "
 		"VALUES ($1, $2, $3) "
 		"RETURNING job_id;",
