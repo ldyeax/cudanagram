@@ -18,6 +18,14 @@ namespace avx {
 	);
 
 	/**
+	 * Subtract b from a and return result
+	 * **/
+	Result compare(
+		int8_t* a,
+		int8_t* b
+	);
+
+	/**
 	 * Subtract b from a, store in dst
 	 * **/
 	Result compare(

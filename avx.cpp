@@ -1,7 +1,7 @@
 #include <utility>
 #include <cstdint>
 #include <immintrin.h>
-
+#include "definitions.hpp"
 #include "avx.hpp"
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -46,6 +46,8 @@ static inline avx::Result avx::sub_and_flags_i8_26 (
 	return ret;
 }
 
+int8_t avx_tmp[NUM_LETTERS_IN_ALPHABET];
+
 avx::Result avx::compare(
 	int8_t* a,
 	int8_t* b,
@@ -59,3 +61,14 @@ avx::Result avx::compare(
 	);
 }
 
+avx::Result avx::compare(
+	int8_t* a,
+	int8_t* b
+)
+{
+	return avx::sub_and_flags_i8_26(
+		static_cast<const int8_t*>(a),
+		static_cast<const int8_t*>(b),
+		avx_tmp
+	);
+}

@@ -2,6 +2,9 @@
 
 GPP = g++
 GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++20
+TEST_DICTIONARY = dictionary_test
+TEST_DICTIONARY_O = dictionary_test.o
+TEST_DICTIONARY_SRC = dictionary_test.cpp
 TEST_AVX = test_avx
 TEST_AVX_SRC = test_avx.cpp
 AVX_SRC = avx.cpp
@@ -39,6 +42,8 @@ clean:
 	rm -f capabilities_test
 	rm -f database_test
 	rm -f $(AVX_O)
+	rm -f test_avx
+	rm -f dictionary_test
 
 avx_test:
 	$(GPP) $(AVX_2) $(LDFLAGS)
@@ -51,3 +56,7 @@ database_test:
 	$(GPP) $(AVX_2) $(LDFLAGS)
 	$(GPP) $(DB_2) $(LDFLAGS)
 	$(CC) $(CFLAGS) $(DB_O) $(AVX_O) -o $(TEST_DB) $(CUFILES) $(TEST_DB_SRC) $(LDFLAGS)
+
+dictionary_test:
+	$(GPP) $(AVX_2) $(LDFLAGS)
+	$(GPP) $(GPP_FLAGS) $(AVX_O) -o $(TEST_DICTIONARY) $(TEST_DICTIONARY_SRC) dictionary.cpp frequency_map.cpp $(LDFLAGS)
