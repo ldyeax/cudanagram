@@ -5,11 +5,12 @@
 #include <chrono>
 #include <pqxx/pqxx>
 #include <pqxx/transaction>
-#include <pqxx/tablewriter>
 #include <pqxx/stream_to>
 #include <cstring>
 #include <memory>
 #include <cstdint>
+#include <vector>
+#include <tuple>
 
 using namespace database;
 using namespace std;
@@ -73,7 +74,7 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 	}
 	pqxx::work txn = pqxx::work(*impl->conn);
 
-	static constexpr std::array<std::string_view,5> COLS{
+	static const std::vector<std::string> cols{
         "parent_job_id",
 		"frequency_map",
 		"start",
@@ -83,16 +84,25 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 	pqxx::stream_to s{
 		txn,
 		"job",
-		COLS
+		cols
 	};
 
 	for (int32_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
-		pqxx::binarystring fm(
-			j.frequency_map,
+
+		// pqxx::binarystring fm(
+		// 	j.frequency_map,
+		// 	NUM_LETTERS_IN_ALPHABET
+		// );
+		// auto fm = pqxx::binary_cast(
+		// 	(int8_t*)j.frequency_map, 
+		// 	NUM_LETTERS_IN_ALPHABET
+		// );
+		std::string fm(
+			reinterpret_cast<const char*>((int8_t*)j.frequency_map), 
 			NUM_LETTERS_IN_ALPHABET
 		);
-		s.write_row(
+		s << std::make_tuple(
 			j.parent_job_id,
 			fm,
 			j.start,
@@ -101,34 +111,36 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 		);
 	}
 	s.complete();
+	txn.commit();
 }
 
 void Database::writeCompleteSentence(job::Job job)
 {
-	vector<FrequencyMapIndex_t> frequency_map_indices = {};
-	do {
-		frequency_map_indices.push_back(
-			job.parent_frequency_map_index
-		);
-	} while (job.parent_frequency_map_index >= 0);
-	pqxx::work txn = pqxx::work(*impl->conn);
-	auto w = pqxx::tablewriter(
-		txn,
-		"found_sentences", {
-			"frequency_map_indices"
-		}
-	);
-	int32_t length = frequency_map_indices.size();
-	FrequencyMapIndex_t* buffer
-		= new FrequencyMapIndex_t[length];
-	for (int32_t i = 1; i <= length; i++) {
-		buffer[length - i] = frequency_map_indices[i - 1];
-	}
-	w.insert({
-		pqxx::binarystring(reinterpret_cast<char*>(buffer)),
-		sizeof(FrequencyMapIndex_t) * length
-	});
-	w.complete();
+	// vector<FrequencyMapIndex_t> frequency_map_indices = {};
+	// do {
+	// 	frequency_map_indices.push_back(
+	// 		job.parent_frequency_map_index
+	// 	);
+	// } while (job.parent_frequency_map_index >= 0);
+	// pqxx::work txn = pqxx::work(*impl->conn);
+	
+	// std::vector<std::string> cols{"frequency_map_indices"};
+	// pqxx::stream_to s{txn, "found_sentences", cols};
+	
+	// int32_t length = frequency_map_indices.size();
+	// FrequencyMapIndex_t* buffer
+	// 	= new FrequencyMapIndex_t[length];
+	// for (int32_t i = 1; i <= length; i++) {
+	// 	buffer[length - i] = frequency_map_indices[i - 1];
+	// }
+	// pqxx::binarystring bs(
+	// 	reinterpret_cast<char*>(buffer),
+	// 	sizeof(FrequencyMapIndex_t) * length
+	// );
+	// s << std::make_tuple(bs);
+	// s.complete();
+	// txn.commit();
+	// delete[] buffer;
 }
 
 void rowToJob(const pqxx::row* p_row, job::Job& j)
