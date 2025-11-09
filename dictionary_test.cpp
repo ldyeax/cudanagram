@@ -33,4 +33,12 @@ int main()
 	assert(d.stats.frequency_map_rejections == 1);
 	cout << "Frequency maps length: " << d.frequency_maps_length << endl;
 	cout << "Passed" << endl;
+
+	d = dictionary::Dictionary(
+		"twomilkmengocomedy",
+		"dictionary.txt",
+		NULL,
+		-1
+	);
+	d.printStats();
 }

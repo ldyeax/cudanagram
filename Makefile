@@ -14,7 +14,7 @@ DB_O = database.o
 AVX_2 = $(GPP_FLAGS) -c $(AVX_SRC)
 DB_2 = $(GPP_FLAGS) -c $(DB_SRC)
 CC = nvcc
-CFLAGS = -ccbin g++ --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -arch=native -std=c++20
+CFLAGS = -ccbin g++ --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -arch=native -std=c++20 -Wwrite-strings
 LDFLAGS = -lncurses -ltinfo -lpqxx -lpq
 TARGET = cudanagram
 SRC = main.cu

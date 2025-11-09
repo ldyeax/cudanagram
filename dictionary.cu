@@ -81,11 +81,14 @@ void dictionary::Dictionary::init()
 		if (i_tmp >= 256) {
 			throw;
 		}
-		if (i + 1 < buffer_length &&
-			(!buffer[i + 1]
-			 || buffer[i + 1] == '\r'
-			 || buffer[i + 1] == '\n'
+		if (
+			(i + 1 < buffer_length &&
+				(!buffer[i + 1]
+				 || buffer[i + 1] == '\r'
+				 || buffer[i + 1] == '\n'
+				)
 			)
+			|| i + 1 >= buffer_length
 		) {
 #if DICTIONARY_DEBUG
 			cout << "adding word at " << i << endl;
@@ -98,10 +101,7 @@ void dictionary::Dictionary::init()
 			stats.initial_words_parsed++;
 			FrequencyMap fm = createFrequencyMap(tmp);
 #if DICTIONARY_DEBUG
-			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
-				cout << i << "=" << (int)(fm.frequencies[i]) << " ";
-			}
-			cout << endl;
+			fm.print();
 #endif
 			if (avx::compare(
 				input_frequency_map,
@@ -109,6 +109,9 @@ void dictionary::Dictionary::init()
 				tmp2
 			).any_negative) {
 				stats.frequency_map_rejections++;
+#if DICTIONARY_DEBUG
+				reinterpret_cast<FrequencyMap*>(tmp2)->print();
+#endif
 				continue;
 			}
 			string s = string(tmp);

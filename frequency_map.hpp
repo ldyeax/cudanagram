@@ -11,8 +11,16 @@ using std::string;
 namespace frequency_map {
 	struct FrequencyMap {
 		char frequencies[NUM_LETTERS_IN_ALPHABET];
-		__device__ __host__ operator int8_t*() {
+		__device__ __host__ operator int8_t*()
+		{
 			return (int8_t*)&frequencies[0];
+		}
+		constexpr void print()
+		{
+			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
+				printf("%c=%d ", i+'A', frequencies[i]);
+			}
+			printf("\n");
 		}
 	};
 	enum Result {
