@@ -1,3 +1,4 @@
 [submodule "external/libpqxx"]
 	path = external/libpqxx
 	url = git@github.com:jtv/libpqxx.git
+	ignore = all
