@@ -72,37 +72,26 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 	if (length <= 0) {
 		throw;
 	}
+
 	pqxx::work txn = pqxx::work(*impl->conn);
 
-	static const std::vector<std::string> cols{
-        "parent_job_id",
+	pqxx::table_path job_table_path({"job"});
+	auto s = pqxx::stream_to::table(txn, job_table_path, {
+		"job_parent_id",
 		"frequency_map",
 		"start",
 		"parent_frequency_map_index",
 		"finished"
-    };
-	pqxx::stream_to s{
-		txn,
-		"job",
-		cols
-	};
+	});
 
 	for (int32_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
 
-		// pqxx::binarystring fm(
-		// 	j.frequency_map,
-		// 	NUM_LETTERS_IN_ALPHABET
-		// );
-		// auto fm = pqxx::binary_cast(
-		// 	(int8_t*)j.frequency_map, 
-		// 	NUM_LETTERS_IN_ALPHABET
-		// );
 		std::string fm(
-			reinterpret_cast<const char*>((int8_t*)j.frequency_map), 
+			reinterpret_cast<char*>(j.frequency_map.frequencies),
 			NUM_LETTERS_IN_ALPHABET
 		);
-		s << std::make_tuple(
+		s.write_values(
 			j.parent_job_id,
 			fm,
 			j.start,
@@ -110,6 +99,7 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 			j.finished
 		);
 	}
+
 	s.complete();
 	txn.commit();
 }
@@ -145,19 +135,19 @@ void Database::writeCompleteSentence(job::Job job)
 
 void rowToJob(const pqxx::row* p_row, job::Job& j)
 {
-	auto row = *p_row;
-	j.job_id = row["job_id"].as<JobID_t>();
-	j.parent_job_id = row["parent_job_id"].as<JobID_t>();
-	j.start = row["start"].as<FrequencyMapIndex_t>();
-	j.parent_frequency_map_index = row["parent_frequency_map_index"].as<FrequencyMapIndex_t>();
-	pqxx::binarystring freq(row["frequency_map"]);
-	std::memset(j.frequency_map.frequencies, 0, NUM_LETTERS_IN_ALPHABET);
-	std::memcpy(
-		j.frequency_map.frequencies,
-		freq.data(),
-		NUM_LETTERS_IN_ALPHABET
-	);
-	j.finished = row["finished"].as<bool>();
+	// auto row = *p_row;
+	// j.job_id = row["job_id"].as<JobID_t>();
+	// j.parent_job_id = row["parent_job_id"].as<JobID_t>();
+	// j.start = row["start"].as<FrequencyMapIndex_t>();
+	// j.parent_frequency_map_index = row["parent_frequency_map_index"].as<FrequencyMapIndex_t>();
+	// pqxx::binarystring freq(row["frequency_map"]);
+	// std::memset(j.frequency_map.frequencies, 0, NUM_LETTERS_IN_ALPHABET);
+	// std::memcpy(
+	// 	j.frequency_map.frequencies,
+	// 	freq.data(),
+	// 	NUM_LETTERS_IN_ALPHABET
+	// );
+	// j.finished = row["finished"].as<bool>();
 }
 
 job::Job* Database::getUnfinishedJobs(int32_t length)

@@ -1,11 +1,10 @@
-# g++ -O3 -march=native -mavx2 -mfma -Wall -Wextra -std=c++20 test_avx.cpp -o test_avx && ./test_avx
-
-GPP = g++
-GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++20 -I$(PQXX_INC)
-
 PQXX_PREFIX := $(CURDIR)/external/build
 PQXX_INC    := $(PQXX_PREFIX)/include
 PQXX_LIB    := $(PQXX_PREFIX)/lib
+
+GPP = g++
+GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC)
+GPP_LDFLAGS = -lpq -lncurses -ltinfo -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) 
 
 TEST_DICTIONARY = dictionary_test
 TEST_DICTIONARY_O = dictionary_test.o
@@ -18,9 +17,10 @@ DB_SRC = database.cpp
 DB_O = database.o
 AVX_2 = $(GPP_FLAGS) -c $(AVX_SRC)
 DB_2 = $(GPP_FLAGS) -c $(DB_SRC)
+
 CC = nvcc
-CFLAGS = -ccbin g++ --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -arch=native -std=c++20 -Wwrite-strings 
-LDFLAGS = -lncurses -ltinfo -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq
+CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC)
+LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx
 
 
 
@@ -30,19 +30,12 @@ TEST_CAP = "capabilities_test"
 TEST_CAP_SRC = capabilities_test.cu
 TEST_DB_SRC = database_test.cpp
 TEST_DB = database_test
-CUFILES := $(wildcard *.cu)
-CUFILES := $(filter-out $(SRC), $(CUFILES))
-CUFILES := $(filter-out $(TEST_CAP_SRC), $(CUFILES))
-CPPFILES := $(wildcard *.cpp)
-CPPFILES := $(filter-out $(TEST_DB_SRC), $(CPPFILES))
-CPPFILES := $(filter-out $(AVX_SRC), $(CPPFILES))
-CPPFILES := $(filter-out $(TEST_AVX_SRC), $(CPPFILES))
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(GPP) $(GPP_FLAGS) -o $(AVX_O) $(AVX_SRC) $(LDFLAGS)
-	$(GPP) $(GPP_FLAGS) -o $(DB_O) $(DB_SRC) $(LDFLAGS)
+	$(GPP) $(GPP_FLAGS) -o $(AVX_O) $(AVX_SRC) $(GPP_LDFLAGS)
+	$(GPP) $(GPP_FLAGS) -o $(DB_O) $(DB_SRC) $(GPP_LDFLAGS)
 	$(CC) $(CFLAGS)  -o $@ $^ $(LDFLAGS)
 
 clean:
@@ -57,17 +50,18 @@ pqxx:
 	bash ./build_pqxx.sh
 
 avx_test:
-	$(GPP) $(AVX_2) $(LDFLAGS)
-	$(GPP) $(GPP_FLAGS) -o $(TEST_AVX) $(TEST_AVX_SRC) $(LDFLAGS)
+	$(GPP) $(AVX_2) $(GPP_LDFLAGS)
+	$(GPP) $(GPP_FLAGS) -o $(TEST_AVX) $(TEST_AVX_SRC) $(GPP_LDFLAGS)
 
 capabilities_test:
 	$(CC) $(CFLAGS) -o capabilities_test capabilities_test.cu $(LDFLAGS)
 
 database_test:
-	$(GPP) $(AVX_2) $(LDFLAGS)
-	$(GPP) $(DB_2) $(LDFLAGS)
-	$(CC) $(CFLAGS) $(DB_O) $(AVX_O) -o $(TEST_DB) $(CUFILES) $(TEST_DB_SRC) $(LDFLAGS)
+	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
+	$(GPP) $(GPP_FLAGS) -c $(DB_SRC) -Wl,-rpath,$(PQXX_LIB) 
+
+	$(CC) $(CFLAGS) $(DB_O) $(AVX_O) -o $(TEST_DB) dictionary.cu frequency_map.cu database_test.cpp -Xlinker -rpath -Xlinker /root/cudanagram/external/build/lib $(LDFLAGS) 
 
 dictionary_test:
-	$(GPP) $(AVX_2) $(LDFLAGS)
-	$(GPP) $(GPP_FLAGS) $(AVX_O) -o $(TEST_DICTIONARY) $(TEST_DICTIONARY_SRC) dictionary.cpp frequency_map.cpp $(LDFLAGS)
+	$(GPP) $(AVX_2) $(GPP_LDFLAGS)
+	$(GPP) $(GPP_FLAGS) $(AVX_O) -o $(TEST_DICTIONARY) $(TEST_DICTIONARY_SRC) dictionary.cpp frequency_map.cpp $(GPP_LDFLAGS)
