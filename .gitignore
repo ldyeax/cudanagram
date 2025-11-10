@@ -1,3 +1,7 @@
+database_test
+dictionary_test
+test_avx
+*.o
 *.i
 *.ii
 *.gpu
