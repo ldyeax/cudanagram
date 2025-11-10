@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include "job.hpp"
 #include <string>
-
+#include <memory>
+using std::unique_ptr;
 namespace database {
 	struct Impl;
 	class Database {
@@ -15,6 +16,7 @@ namespace database {
 		void connect();
 		void init();
 	public:
+		~Database();
 		Database();
 		Database(std::string existing_db_name);
 		// Write job to db, where its ID will be created

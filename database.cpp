@@ -1,3 +1,5 @@
+#define TEST_DB 1
+
 #include "database.hpp"
 #include <iostream>
 #include <cstdlib>
@@ -17,6 +19,7 @@ using namespace std;
 using job::Job;
 using std::unique_ptr;
 using std::make_unique;
+using std::cout;
 
 struct database::Impl {
 	unique_ptr<pqxx::connection> conn;
@@ -27,29 +30,46 @@ std::string Database::getNewDatabaseName()
 	auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
 	return "cudanagram_" + current_unix_timestamp;
 }
-
+char pgpassword_putenv[] = "PGPASSWORD=cudanagram";
 void Database::init()
 {
-	char tmp[] = "PGPASSWORD=cudanagram";
-	putenv(tmp);
+	impl = new Impl;
+	putenv(pgpassword_putenv);
+}
+
+Database::~Database()
+{
+	if (impl != nullptr) {
+		delete impl;
+		impl = nullptr;
+	}
 }
 
 Database::Database(std::string existing_db_name)
 {
+#if TEST_DB
+	cout << "Constructing Database object with existing db name: " << existing_db_name << endl;
+#endif
 	init();
 	db_name = existing_db_name;
 	connect();
+#if TEST_DB
+	cout << "Connected to existing db" << endl;
+#endif
 }
 
 void Database::create_db()
 {
 	db_name = getNewDatabaseName();
-	string tmp = "psql -U cudanagram -v dbname=";
+	cout << "Creating db with name " << db_name << endl;
+	string tmp = "psql -d postgres -U cudanagram -v dbname=";
 	tmp += db_name;
 	tmp += " -f setup.sql";
-	if (!system(tmp.c_str())) {
+	cout << "Executing command: " << tmp << endl;
+	if (system(tmp.c_str())) {
 		throw;
 	}
+	cout << "Created new db" << endl;
 }
 
 void Database::connect()
@@ -57,6 +77,10 @@ void Database::connect()
 	string tmp = "dbname=";
 	tmp += db_name;
 	tmp += " user=cudanagram host=/var/run/postgresql";
+#if TEST_DB
+	cout << "Connecting to db: " << tmp << endl;
+	printf("Impl=%p\n", impl);
+#endif
 	impl->conn = make_unique<pqxx::connection>(tmp.c_str());
 }
 
