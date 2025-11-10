@@ -1,5 +1,3 @@
-#define TEST_DB 1
-
 #include "database.hpp"
 #include <iostream>
 #include <cstdlib>
@@ -48,13 +46,13 @@ Database::~Database()
 
 Database::Database(std::string existing_db_name)
 {
-#if TEST_DB
+#ifdef TEST_DB
 	cout << "Constructing Database object with existing db name: " << existing_db_name << endl;
 #endif
 	init();
 	db_name = existing_db_name;
 	connect();
-#if TEST_DB
+#ifdef TEST_DB
 	cout << "Connected to existing db" << endl;
 #endif
 }
@@ -78,7 +76,7 @@ void Database::connect()
 	string tmp = "dbname=";
 	tmp += db_name;
 	tmp += " user=cudanagram host=/var/run/postgresql";
-#if TEST_DB
+#ifdef TEST_DB
 	cout << "Connecting to db: " << tmp << endl;
 	printf("Impl=%p\n", impl);
 #endif
@@ -173,7 +171,8 @@ void rowToJob(const pqxx::row* p_row, job::Job& j)
 	j.parent_job_id = row["parent_job_id"].as<JobID_t>();
 	j.start = row["start"].as<FrequencyMapIndex_t>();
 	j.parent_frequency_map_index = row["parent_frequency_map_index"].as<FrequencyMapIndex_t>();
-	pqxx::binarystring freq(row["frequency_map"]);
+	//pqxx::binarystring freq(row["frequency_map"]);
+	auto freq = row["frequency_map"].as<pqxx::bytes>();
 	std::memset(j.frequency_map.frequencies, 0, NUM_LETTERS_IN_ALPHABET);
 	std::memcpy(
 		j.frequency_map.frequencies,
@@ -199,15 +198,15 @@ job::Job* Database::getUnfinishedJobs(int32_t length)
 		"FROM job "
 		"WHERE finished = false "
 		"LIMIT ") + std::to_string(length);
-#if TEST_DB
+#ifdef TEST_DB
 	cout << "Executing query: " << query << endl;
 #endif
 	pqxx::work txn = pqxx::work(*impl->conn);
-#if TEST_DB
+#ifdef TEST_DB
 	cout << "Created transaction" << endl;
 #endif
 	pqxx::result res = txn.exec(query);
-#if TEST_DB
+#ifdef TEST_DB
 	cout << "Executed query, got " << res.size() << " results" << endl;
 #endif
 	int32_t out_count = res.size();

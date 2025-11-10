@@ -60,7 +60,7 @@ database_test:
 	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
 	$(GPP) $(GPP_FLAGS) -c $(DB_SRC) -Wl,-rpath,$(PQXX_LIB) 
 
-	$(CC) $(CFLAGS) $(DB_O) $(AVX_O) -o $(TEST_DB) dictionary.cu frequency_map.cu database_test.cpp -Xlinker -rpath -Xlinker /root/cudanagram/external/build/lib $(LDFLAGS) 
+	$(CC) $(CFLAGS) $(DB_O) $(AVX_O) -o $(TEST_DB) dictionary.cu frequency_map.cu database_test.cpp -Xlinker -rpath -Xlinker /root/cudanagram/external/build/lib $(LDFLAGS) -DTEST_DB
 
 dictionary_test:
 	$(GPP) $(AVX_2) $(GPP_LDFLAGS)
