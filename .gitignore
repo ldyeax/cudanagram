@@ -1,4 +1,4 @@
-external/
+external/**
 trace
 database_test
 dictionary_test
