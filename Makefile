@@ -1,7 +1,12 @@
 # g++ -O3 -march=native -mavx2 -mfma -Wall -Wextra -std=c++20 test_avx.cpp -o test_avx && ./test_avx
 
 GPP = g++
-GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++20
+GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++20 -I$(PQXX_INC)
+
+PQXX_PREFIX := $(CURDIR)/external/build
+PQXX_INC    := $(PQXX_PREFIX)/include
+PQXX_LIB    := $(PQXX_PREFIX)/lib
+
 TEST_DICTIONARY = dictionary_test
 TEST_DICTIONARY_O = dictionary_test.o
 TEST_DICTIONARY_SRC = dictionary_test.cpp
@@ -14,8 +19,11 @@ DB_O = database.o
 AVX_2 = $(GPP_FLAGS) -c $(AVX_SRC)
 DB_2 = $(GPP_FLAGS) -c $(DB_SRC)
 CC = nvcc
-CFLAGS = -ccbin g++ --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -arch=native -std=c++20 -Wwrite-strings
-LDFLAGS = -lncurses -ltinfo -lpqxx -lpq
+CFLAGS = -ccbin g++ --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -arch=native -std=c++20 -Wwrite-strings 
+LDFLAGS = -lncurses -ltinfo -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq
+
+
+
 TARGET = cudanagram
 SRC = main.cu
 TEST_CAP = "capabilities_test"
@@ -44,6 +52,9 @@ clean:
 	rm -f $(AVX_O)
 	rm -f test_avx
 	rm -f dictionary_test
+
+pqxx:
+	bash ./build_pqxx.sh
 
 avx_test:
 	$(GPP) $(AVX_2) $(LDFLAGS)
