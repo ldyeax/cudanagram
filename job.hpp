@@ -2,7 +2,10 @@
 #include <stdint.h>
 #include "definitions.hpp"
 #include "dictionary.hpp"
+#include <iostream>
 #define JobID_t int64_t
+using std::endl;
+using std::cout;
 namespace job {
 	struct Job {
 		/**
@@ -22,5 +25,14 @@ namespace job {
 		 * **/
 		FrequencyMapIndex_t parent_frequency_map_index;
 		bool finished;
+
+		constexpr void const print()
+		{
+			//std::cout << "Job " << job_id << ": parent_job_id=" << parent_job_id << " frequency_map=";
+			printf("Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
+			frequency_map.print();
+			//std::cout << " start=" << start << " parent_frequency_mapIndex=" << parent_frequency_map_index << " finished=" << finished << endl;
+			printf(" start=%d parent_frequency_map_index=%d finished=%d\n", start, parent_frequency_map_index, finished);
+		}
 	};
 }

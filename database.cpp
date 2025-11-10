@@ -20,6 +20,7 @@ using job::Job;
 using std::unique_ptr;
 using std::make_unique;
 using std::cout;
+using std::endl;
 
 struct database::Impl {
 	unique_ptr<pqxx::connection> conn;
@@ -101,7 +102,7 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 
 	pqxx::table_path job_table_path({"job"});
 	auto s = pqxx::stream_to::table(txn, job_table_path, {
-		"job_parent_id",
+		"parent_job_id",
 		"frequency_map",
 		"start",
 		"parent_frequency_map_index",
@@ -111,8 +112,16 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 	for (int32_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
 
-		std::string fm(
-			reinterpret_cast<char*>(j.frequency_map.frequencies),
+		// std::string fm(
+		// 	reinterpret_cast<char*>(j.frequency_map.frequencies),
+		// 	NUM_LETTERS_IN_ALPHABET
+		// );
+		// pqxx::binarystring fm(
+		// 	reinterpret_cast<char*>(j.frequency_map.frequencies),
+		// 	NUM_LETTERS_IN_ALPHABET
+		// );
+		pqxx::bytes_view fm(
+			j.frequency_map.asStdBytePointer(),
 			NUM_LETTERS_IN_ALPHABET
 		);
 		s.write_values(
@@ -159,19 +168,19 @@ void Database::writeCompleteSentence(job::Job job)
 
 void rowToJob(const pqxx::row* p_row, job::Job& j)
 {
-	// auto row = *p_row;
-	// j.job_id = row["job_id"].as<JobID_t>();
-	// j.parent_job_id = row["parent_job_id"].as<JobID_t>();
-	// j.start = row["start"].as<FrequencyMapIndex_t>();
-	// j.parent_frequency_map_index = row["parent_frequency_map_index"].as<FrequencyMapIndex_t>();
-	// pqxx::binarystring freq(row["frequency_map"]);
-	// std::memset(j.frequency_map.frequencies, 0, NUM_LETTERS_IN_ALPHABET);
-	// std::memcpy(
-	// 	j.frequency_map.frequencies,
-	// 	freq.data(),
-	// 	NUM_LETTERS_IN_ALPHABET
-	// );
-	// j.finished = row["finished"].as<bool>();
+	auto row = *p_row;
+	j.job_id = row["job_id"].as<JobID_t>();
+	j.parent_job_id = row["parent_job_id"].as<JobID_t>();
+	j.start = row["start"].as<FrequencyMapIndex_t>();
+	j.parent_frequency_map_index = row["parent_frequency_map_index"].as<FrequencyMapIndex_t>();
+	pqxx::binarystring freq(row["frequency_map"]);
+	std::memset(j.frequency_map.frequencies, 0, NUM_LETTERS_IN_ALPHABET);
+	std::memcpy(
+		j.frequency_map.frequencies,
+		freq.data(),
+		NUM_LETTERS_IN_ALPHABET
+	);
+	j.finished = row["finished"].as<bool>();
 }
 
 job::Job* Database::getUnfinishedJobs(int32_t length)
@@ -180,18 +189,27 @@ job::Job* Database::getUnfinishedJobs(int32_t length)
 		throw;
 	}
 	std::string query =
-		"SELECT "
+		std::string("SELECT "
 			"job_id, "
-			"job_parent_id, "
+			"parent_job_id, "
 			"frequency_map, "
 			"start, "
 			"parent_frequency_map_index, "
 			"finished "
 		"FROM job "
 		"WHERE finished = false "
-		"LIMIT " + length;
+		"LIMIT ") + std::to_string(length);
+#if TEST_DB
+	cout << "Executing query: " << query << endl;
+#endif
 	pqxx::work txn = pqxx::work(*impl->conn);
+#if TEST_DB
+	cout << "Created transaction" << endl;
+#endif
 	pqxx::result res = txn.exec(query);
+#if TEST_DB
+	cout << "Executed query, got " << res.size() << " results" << endl;
+#endif
 	int32_t out_count = res.size();
 	if (out_count == 0) {
 		return nullptr;
@@ -208,18 +226,18 @@ job::Job* Database::getUnfinishedJobs(int32_t length)
 job::Job Database::getJob(JobID_t id)
 {
 	if (id < 1) {
-		throw;
+		throw std::invalid_argument("invalid id");
 	}
 	std::string query =
-		"SELECT "
+		std::string("SELECT "
 			"job_id, "
-			"job_parent_id, "
+			"parent_job_id, "
 			"frequency_map, "
 			"start, "
 			"parent_frequency_map_index, "
 			"finished "
 		"FROM job "
-		"WHERE job_id = " + id;
+		"WHERE job_id = ") + std::to_string(id);
 	pqxx::work txn = pqxx::work(*impl->conn);
 	pqxx::result res = txn.exec(query);
 	int32_t out_count = res.size();

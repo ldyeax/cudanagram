@@ -11,10 +11,19 @@ using std::string;
 namespace frequency_map {
 	struct FrequencyMap {
 		char frequencies[NUM_LETTERS_IN_ALPHABET];
+		// __device__ __host__ operator int8_t*()
+		// {
+		// 	return (int8_t*)&frequencies[0];
+		// }
 		__device__ __host__ operator int8_t*()
 		{
 			return (int8_t*)&frequencies[0];
 		}
+		__device__ __host__ const std::byte* asStdBytePointer() const
+		{
+			return (const std::byte*)&frequencies[0];
+		}
+
 		constexpr void print()
 		{
 			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
