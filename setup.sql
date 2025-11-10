@@ -1,4 +1,4 @@
-
+\set ON_ERROR_STOP 1
 CREATE DATABASE :dbname;
 \c :dbname;
 
