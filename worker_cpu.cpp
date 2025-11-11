@@ -39,6 +39,11 @@ private:
 	}
 	vector<Job*> unfinished_jobs;
 public:
+	void reset() override
+	{
+		Worker::reset();
+		unfinished_jobs.clear();
+	}
 	std::thread thread;
 	Worker_CPU(database::Database* p_db, dictionary::Dictionary* p_dict, int32_t p_id)
 		: Worker(p_db, p_dict)
@@ -49,7 +54,7 @@ public:
 		thread.detach();
 	}
 
-	int32_t takeJobs(Job* buffer, int32_t max_length) override
+	int64_t takeJobs(Job* buffer, int64_t max_length) override
 	{
 		finished = false;
 		if (max_length <= 0) {
@@ -115,9 +120,9 @@ public:
 
 class WorkerFactory_CPU : public WorkerFactory {
 public:
-    int32_t Spawn(
+    int64_t Spawn(
         Worker** buffer,
-        int32_t max,
+        int64_t max,
         database::Database* db,
         dictionary::Dictionary* dict
     ) override {
@@ -129,8 +134,8 @@ public:
 			std::cout << "The number of CPU threads could not be determined or is zero." << std::endl;
 			concurrent_threads = 16;
 		}
-        int32_t count = 0;
-        for (int32_t i = 0; i < max && i < concurrent_threads; i++) {
+        int64_t count = 0;
+        for (int64_t i = 0; i < max && i < concurrent_threads; i++) {
             buffer[i] = new Worker_CPU(db, dict, i);
             count++;
         }

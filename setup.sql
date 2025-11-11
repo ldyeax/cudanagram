@@ -2,6 +2,12 @@
 CREATE DATABASE :dbname;
 \c :dbname;
 
+-- performance enhancements
+
+ALTER DATABASE :dbname SET synchronous_commit = off;
+--ALTER DATABASE :dbname SET wal_compression = on;
+ALTER DATABASE :dbname SET work_mem = '4096MB';
+
 CREATE DOMAIN frequency_map AS BYTEA CHECK (length(VALUE) = 26);
 
 CREATE TABLE job (
@@ -15,3 +21,6 @@ CREATE TABLE job (
 CREATE TABLE found_sentences (
 	frequency_map_indices	INTEGER[] NOT NULL
 );
+
+-- make tables unlogged
+ALTER TABLE job SET UNLOGGED;

@@ -12,6 +12,21 @@
 #include <vector>
 #include <tuple>
 
+
+#include <arpa/inet.h>
+#include <cstdint>
+#include <vector>
+#include <cstring>
+
+// helper for 64-bit network byte order
+static inline uint64_t htonll(uint64_t v) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return ((uint64_t)htonl(v & 0xffffffffULL) << 32) | htonl((uint32_t)(v >> 32));
+#else
+    return v;
+#endif
+}
+
 using namespace database;
 using namespace std;
 using job::Job;
@@ -128,52 +143,111 @@ void Database::writeUnfinishedJob(job::Job job, Txn* txn) {
 	writeUnfinishedJobs(&job, 1, txn);
 }
 
-void Database::writeUnfinishedJobs(job::Job* jobs, int32_t length)
+void Database::writeUnfinishedJobs(job::Job* jobs, int64_t length)
 {
 	Txn txn(impl);
 	writeUnfinishedJobs(jobs, length, &txn);
 	txn.commit();
 }
 
-void Database::writeUnfinishedJobs(job::Job* jobs, int32_t length, Txn* txn)
+
+
+void Database::writeUnfinishedJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
 	if (length <= 0) {
 		throw;
 	}
+	{
+		pqxx::table_path job_table_path({"job"});
+		auto s = pqxx::stream_to::table(*txn, job_table_path, {
+			"parent_job_id",
+			"frequency_map",
+			"start",
+			"finished"
+		});
 
-	pqxx::table_path job_table_path({"job"});
-	auto s = pqxx::stream_to::table(*txn, job_table_path, {
-		"parent_job_id",
-		"frequency_map",
-		"start",
-		"finished"
-	});
+		for (int32_t i = 0; i < length; i++) {
+			Job& j = jobs[i];
 
-	for (int32_t i = 0; i < length; i++) {
-		Job& j = jobs[i];
+			pqxx::bytes_view fm(
+				j.frequency_map.asStdBytePointer(),
+				NUM_LETTERS_IN_ALPHABET
+			);
+			s.write_values(
+				j.parent_job_id,
+				fm,
+				j.start,
+				false
+			);
+		}
 
-		pqxx::bytes_view fm(
-			j.frequency_map.asStdBytePointer(),
-			NUM_LETTERS_IN_ALPHABET
-		);
-		s.write_values(
-			j.parent_job_id,
-			fm,
-			j.start,
-			false
-		);
+		s.complete();
 	}
 
-	s.complete();
+	{
+		// std::vector<JobID_t> parent_job_id_values;
+		// std::vector<FrequencyMapIndex_t> start_values;
+		// std::vector<pqxx::binarystring> frequency_map_values;
+		// parent_job_id_values.reserve(length);
+		// start_values.reserve(length);
+		// frequency_map_values.reserve(length);
+		// for (int32_t i = 0; i < length; i++) {
+		// 	Job& j = jobs[i];
+		// 	parent_job_id_values.push_back(j.parent_job_id);
+		// 	start_values.push_back(j.start);
+		// 	// pqxx::binarystring fs(
+		// 	// 	(const char*)j.frequency_map.asStdBytePointer(),
+		// 	// 	NUM_LETTERS_IN_ALPHABET
+		// 	// );
+		// 	// frequency_map_values.push_back(fs);
+		// 	frequency_map_values.emplace_back(
+		// 		reinterpret_cast<const unsigned char*>(j.frequency_map.asStdBytePointer()),
+		// 		NUM_LETTERS_IN_ALPHABET
+		// 	);
+		// }
+
+		// // txn->txn->exec_params(
+		// // 	"INSERT INTO job (parent_job_id, frequency_map, start, finished) "
+		// // 	"SELECT UNNEST($1::BIGINT[]), UNNEST($2::BYTEA[]), UNNEST($3::INTEGER[]), FALSE",
+		// // 	parent_job_id_values,
+		// // 	frequency_map_values,
+		// // 	start_values
+		// // );
+		// txn->txn->exec_params0(
+		// 	"INSERT INTO job (parent_job_id, frequency_map, start, finished)\n"
+		// 	"SELECT u.parent_job_id, u.frequency_map, u.start, FALSE\n"
+		// 	"FROM unnest($1::bigint[], $2::bytea[], $3::int[]) AS u(parent_job_id, frequency_map, start)",
+		// 	parent_job_id_values,
+		// 	frequency_map_values,
+		// 	start_values
+		// );
+	}
+	// {
+	// 	std::string sql;
+	// 	sql.reserve(length * 128);
+	// 	sql += "INSERT INTO job(parent_job_id, frequency_map, start, finished) VALUES";
+	// 	for (int32_t i = 0; i < length; ++i) {
+	// 		const Job& j = jobs[i];
+	// 		pqxx::binarystring fm(
+	// 			reinterpret_cast<const unsigned char*>(j.frequency_map.asStdBytePointer()),
+	// 			NUM_LETTERS_IN_ALPHABET);
+	// 		if (i) sql += ',';
+	// 		sql += '('
+	// 			+ pqxx::to_string(j.parent_job_id) + ','
+	// 			+ txn->txn->quote(fm) + ','
+	// 			+ pqxx::to_string(j.start) + ",FALSE)";
+	// 	}
+	// 	txn->txn->exec0(sql);
+	// }
 }
 
-void Database::finishJobs(job::Job* jobs, int32_t length) {
+void Database::finishJobs(job::Job* jobs, int64_t length) {
 	Txn txn(impl);
 	finishJobs(jobs, length, &txn);
 	txn.commit();
 }
 
-void Database::finishJobs(job::Job* jobs, int32_t length, Txn* txn) {
+void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
     if (length <= 0)
 	{
 		throw;
@@ -181,7 +255,7 @@ void Database::finishJobs(job::Job* jobs, int32_t length, Txn* txn) {
 
     std::vector<JobID_t> ids;
     ids.reserve(length);
-    for (int32_t i = 0; i < length; ++i) ids.push_back(jobs[i].job_id);
+    for (int64_t i = 0; i < length; ++i) ids.push_back(jobs[i].job_id);
 
     txn->txn->exec_params(
         "UPDATE job SET finished = TRUE "
@@ -211,7 +285,7 @@ shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job
 	}
 
 	//std::vector<FrequencyMapIndex_t> frequency_map_indices;
-	shared_ptr<vector<FrequencyMapIndex_t>> frequency_map_indices 
+	shared_ptr<vector<FrequencyMapIndex_t>> frequency_map_indices
 		= make_shared<vector<FrequencyMapIndex_t>>();
 	frequency_map_indices->push_back(job.start);
 #ifdef TEST_DB
@@ -257,10 +331,10 @@ void rowToJob(const pqxx::row* p_row, job::Job& j)
 	j.finished = row["finished"].as<bool>();
 }
 
-int32_t Database::getUnfinishedJobs(int32_t length, job::Job* buffer)
+int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer)
 {
 	Txn txn(impl);
-	int32_t out_count = getUnfinishedJobs(length, buffer, &txn);
+	int64_t out_count = getUnfinishedJobs(length, buffer, &txn);
 	txn.commit();
 	return out_count;
 }
@@ -293,7 +367,7 @@ int64_t getUnfinishedJobCountSlow(Txn* txn) {
 	return res[0]["count"].as<int64_t>();
 }
 
-int32_t Database::getUnfinishedJobs(int32_t length, job::Job* buffer, Txn* txn)
+int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 {
 	if (length <= 0) {
 		throw;
@@ -322,7 +396,7 @@ int32_t Database::getUnfinishedJobs(int32_t length, job::Job* buffer, Txn* txn)
 #ifdef TEST_DB
 	cout << "Executed query, got " << res.size() << " results" << endl;
 #endif
-	int32_t out_count = res.size();
+	int64_t out_count = res.size();
 	if (out_count == 0) {
 		return 0;
 	}

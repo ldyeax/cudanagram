@@ -28,8 +28,8 @@ namespace database {
 		// Write job to db, where its ID will be created
 		void writeUnfinishedJob(job::Job);
 		void writeUnfinishedJob(job::Job, Txn* txn);
-		void writeUnfinishedJobs(job::Job* jobs, int32_t length);
-		void writeUnfinishedJobs(job::Job* jobs, int32_t length, Txn* txn);
+		void writeUnfinishedJobs(job::Job* jobs, int64_t length);
+		void writeUnfinishedJobs(job::Job* jobs, int64_t length, Txn* txn);
 		/**
 		 * Input should have start=index of last word in sentence
 		 * Sentence will be found by traversing parent_job_id
@@ -38,9 +38,9 @@ namespace database {
 		shared_ptr<vector<FrequencyMapIndex_t>> writeCompleteSentence(job::Job, Txn* txn);
 		job::Job getJob(JobID_t job_id);
 		job::Job getJob(JobID_t job_id, Txn* txn);
-		int32_t getUnfinishedJobs(int32_t length, job::Job* output);
-		int32_t getUnfinishedJobs(int32_t length, job::Job* output, Txn* txn);
-		void finishJobs(job::Job* jobs, int32_t length);
-		void finishJobs(job::Job* jobs, int32_t length, Txn* txn);
+		int64_t getUnfinishedJobs(int64_t length, job::Job* output);
+		int64_t getUnfinishedJobs(int64_t length, job::Job* output, Txn* txn);
+		void finishJobs(job::Job* jobs, int64_t length);
+		void finishJobs(job::Job* jobs, int64_t length, Txn* txn);
 	};
 }
