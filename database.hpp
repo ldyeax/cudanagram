@@ -20,6 +20,8 @@ namespace database {
 		void connect();
 		void init();
 	public:
+		Txn* beginTransaction();
+		void commitTransaction(Txn* txn);
 		~Database();
 		Database();
 		Database(std::string existing_db_name);
