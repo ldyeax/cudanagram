@@ -118,24 +118,24 @@ Database::Database()
 	connect();
 }
 
-void Database::writeJob(job::Job job) {
+void Database::writeUnfinishedJob(job::Job job) {
 	Txn txn(impl);
-	writeJobs(&job, 1, &txn);
+	writeUnfinishedJobs(&job, 1, &txn);
 	txn.commit();
 }
 
-void Database::writeJob(job::Job job, Txn* txn) {
-	writeJobs(&job, 1, txn);
+void Database::writeUnfinishedJob(job::Job job, Txn* txn) {
+	writeUnfinishedJobs(&job, 1, txn);
 }
 
-void Database::writeJobs(job::Job* jobs, int32_t length)
+void Database::writeUnfinishedJobs(job::Job* jobs, int32_t length)
 {
 	Txn txn(impl);
-	writeJobs(jobs, length, &txn);
+	writeUnfinishedJobs(jobs, length, &txn);
 	txn.commit();
 }
 
-void Database::writeJobs(job::Job* jobs, int32_t length, Txn* txn)
+void Database::writeUnfinishedJobs(job::Job* jobs, int32_t length, Txn* txn)
 {
 	if (length <= 0) {
 		throw;
@@ -146,7 +146,6 @@ void Database::writeJobs(job::Job* jobs, int32_t length, Txn* txn)
 		"parent_job_id",
 		"frequency_map",
 		"start",
-		//"parent_frequency_map_index",
 		"finished"
 	});
 
@@ -161,8 +160,7 @@ void Database::writeJobs(job::Job* jobs, int32_t length, Txn* txn)
 			j.parent_job_id,
 			fm,
 			j.start,
-			//j.parent_frequency_map_index,
-			j.finished
+			false
 		);
 	}
 
@@ -259,7 +257,7 @@ void rowToJob(const pqxx::row* p_row, job::Job& j)
 	j.finished = row["finished"].as<bool>();
 }
 
-int32_t Database::getUnfinishedJobs(int32_t length, job::Job*& buffer)
+int32_t Database::getUnfinishedJobs(int32_t length, job::Job* buffer)
 {
 	Txn txn(impl);
 	int32_t out_count = getUnfinishedJobs(length, buffer, &txn);
@@ -267,11 +265,45 @@ int32_t Database::getUnfinishedJobs(int32_t length, job::Job*& buffer)
 	return out_count;
 }
 
-int32_t Database::getUnfinishedJobs(int32_t length, job::Job*& buffer, Txn* txn)
+int64_t getJobCountEstimate(Txn* txn) {
+	// SELECT reltuples::bigint AS estimate FROM pg_class where relname = 'mytable';
+
+	pqxx::result res = txn->txn->exec(
+		"SELECT reltuples::bigint AS estimate "
+		"FROM pg_class "
+		"WHERE relname = 'job'"
+	);
+	return res[0]["estimate"].as<int64_t>();
+}
+
+int64_t getJobCountSlow(Txn* txn) {
+	pqxx::result res = txn->txn->exec(
+		"SELECT COUNT(*) AS count "
+		"FROM job"
+	);
+	return res[0]["count"].as<int64_t>();
+}
+
+int64_t getUnfinishedJobCountSlow(Txn* txn) {
+	pqxx::result res = txn->txn->exec(
+		"SELECT COUNT(*) AS count "
+		"FROM job "
+		"WHERE finished = false"
+	);
+	return res[0]["count"].as<int64_t>();
+}
+
+int32_t Database::getUnfinishedJobs(int32_t length, job::Job* buffer, Txn* txn)
 {
 	if (length <= 0) {
 		throw;
 	}
+
+	printf("Found %ld jobs, of which %ld are unfinished\n",
+		getJobCountSlow(txn),
+		getUnfinishedJobCountSlow(txn)
+	);
+
 	std::string query =
 		std::string("SELECT "
 			"job_id, "
@@ -294,7 +326,6 @@ int32_t Database::getUnfinishedJobs(int32_t length, job::Job*& buffer, Txn* txn)
 	if (out_count == 0) {
 		return 0;
 	}
-	buffer = new Job[out_count];
 	std::size_t i = 0;
 	for (auto const &row : res) {
 		Job& j = buffer[i++];
