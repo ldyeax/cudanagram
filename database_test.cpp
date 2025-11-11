@@ -1,3 +1,4 @@
+#include <memory>
 #include "database.hpp"
 #include <stdio.h>
 #include <iostream>
@@ -21,7 +22,7 @@ int main()
 			}
 		}
 		job.start = i * 2;
-		job.parent_frequency_map_index = i * 3;
+		//job.parent_frequency_map_index = i * 3;
 		job.finished = (i % 2 == 0);
 	}
 
@@ -35,13 +36,14 @@ int main()
 	mydb.writeJobs(buffer, 4);
 	cout << "Written jobs to database." << std::endl;
 	cout << "Reading unfinished jobs from database..." << std::endl;
-	job::Job* unfinished = mydb.getUnfinishedJobs(10);
-	if (unfinished == nullptr) {
+	job::Job* unfinished;
+	int32_t num_unfinished = mydb.getUnfinishedJobs(10, unfinished);
+	if (num_unfinished == 0) {
 		cout << "No unfinished jobs found." << std::endl;
 	}
 	else {
-		cout << "Unfinished jobs:" << std::endl;
-		for (int32_t i = 0; i < 10; i++) {
+		cout << "Unfinished jobs:" << num_unfinished << std::endl;
+		for (int32_t i = 0; i < num_unfinished; i++) {
 			Job& j = unfinished[i];
 			if (j.job_id == 0) {
 				break;

@@ -6,14 +6,15 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
-
+#include <cstring>
+#include <memory>
+using std::shared_ptr;
+using std::make_shared;
 using namespace dictionary;
 using namespace frequency_map;
 using std::string;
 using std::vector;
 using std::endl;
-
-#define DICTIONARY_DEBUG 1
 
 void dictionary::Dictionary::printStats()
 {
@@ -231,4 +232,55 @@ frequency_map::FrequencyMap* dictionary::Dictionary::getFrequencyMapPointer(
 		return nullptr;
 	}
 	return frequency_maps + index;
+}
+
+void dictionary::Dictionary::copyInputFrequencyMap(frequency_map::FrequencyMap* dest)
+{
+	memcpy(dest, &input_frequency_map, NUM_LETTERS_IN_ALPHABET);
+}
+
+void dictionary::Dictionary::printSentence(
+	shared_ptr<vector<FrequencyMapIndex_t>> p_indices)
+{
+	auto indices = *p_indices;
+	// for each index, get an iterator from word_index_lists_for_frequency_maps
+	auto iterators = vector<vector<int32_t>::iterator>();
+	for (auto index : indices) {
+		iterators.push_back(
+			word_index_lists_for_frequency_maps[index].begin()
+		);
+	}
+	while (true) {
+		// print current words
+		for (int32_t i = 0; i < iterators.size(); i++) {
+			if (i > 0) {
+				printf(" ");
+			}
+			printf(
+				"%s",
+				words[*(iterators[i])].c_str()
+			);
+		}
+		printf("\n");
+		// increment iterators
+		int32_t carry = 1;
+		for (int32_t i = iterators.size() - 1; i >= 0; i--) {
+			if (carry == 0) {
+				break;
+			}
+			carry = 0;
+			iterators[i]++;
+			if (iterators[i] == word_index_lists_for_frequency_maps[indices[i]].end()) {
+				if (i == 0) {
+					return;
+				}
+				iterators[i] = word_index_lists_for_frequency_maps[indices[i]].begin();
+				carry = 1;
+			}
+		}
+		// if no iterators advanced (ie we are done), break
+		if (carry == 1) {
+			break;
+		}
+	}
 }

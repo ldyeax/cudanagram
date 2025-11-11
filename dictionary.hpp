@@ -1,3 +1,5 @@
+#pragma once
+#include <memory>
 #include "definitions.hpp"
 #include "frequency_map.hpp"
 #include <stdint.h>
@@ -8,6 +10,8 @@
 using std::cout;
 using std::vector;
 using std::string;
+using std::shared_ptr;
+using std::make_shared;
 
 #define FrequencyMapIndex_t int32_t
 
@@ -58,6 +62,12 @@ namespace dictionary {
 		);
 		__device__ __host__ frequency_map::FrequencyMap* getFrequencyMapPointer(
 			FrequencyMapIndex_t other_index
+		);
+
+		__host__ void copyInputFrequencyMap(frequency_map::FrequencyMap* dest);
+
+		__host__ void printSentence(
+			shared_ptr<vector<FrequencyMapIndex_t>> indices
 		);
 	};
 

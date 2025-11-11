@@ -1,41 +1,19 @@
+#include <memory>
+#include "worker.hpp"
+#include "job.hpp"
+#include "frequency_map.hpp"
+
 using namespace worker;
-using namespace worker_cpu;
+
 using job::Job;
 
-struct Result {
-	Job* new_jobs;
-	int32_t num_new_jobs;
-	Job* found_sentences;
-	int32_t num_found_sentences;
-};
-
 class Worker_CPU : public Worker {
-private:
-	database::Database* db;
-	dictionary::Dictionary* dict;
 public:
-	void WriteResult(Result result)
+	Worker_CPU(database::Database* p_db, dictionary::Dictionary* p_dict) : Worker(p_db, p_dict)
 	{
-		if (result.num_new_jobs > 0) {
-			db->writeJobs(
-				result.new_jobs,
-				result.num_new_jobs
-			);
-		}
-		for (int32_t i = 0; i < result.num_found_sentences; i++) {
-			db->writeCompleteSentence(
-				result.found_sentences[i]
-			);
-		}
+		printf("Constructed CPU Worker\n");
 	}
-	Worker_CPU(database::Database* p_db)
-	{
-		if (p_db == nullptr) {
-			throw;
-		}
-		db = p_db;
-	}
-	Result doJob(job::Job input)
+	Result doJob(job::Job input) override
 	{
 		frequency_map::FrequencyMap tmp = {};
 		job::Job tmp_job = {};
@@ -67,5 +45,12 @@ public:
 				ret.found_sentences[ret.num_found_sentences++] = tmp_job;
 			}
 		}
+
+		return last_result = ret;
 	}
+};
+
+Worker* worker::workerFactory_CPU(database::Database* db, dictionary::Dictionary* dict)
+{
+	return new Worker_CPU(db, dict);
 }

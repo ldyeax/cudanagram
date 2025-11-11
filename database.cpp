@@ -19,9 +19,26 @@ using std::unique_ptr;
 using std::make_unique;
 using std::cout;
 using std::endl;
+using std::shared_ptr;
+using std::make_shared;
 
 struct database::Impl {
 	unique_ptr<pqxx::connection> conn;
+};
+struct database::Txn {
+	pqxx::work* txn;
+	operator pqxx::work*() {
+		return txn;
+	}
+	operator pqxx::transaction_base&() {
+		return *txn;
+	}
+	Txn(Impl* impl) {
+		txn = new pqxx::work(*impl->conn);
+	}
+	void commit() {
+		txn->commit();
+	}
 };
 
 std::string Database::getNewDatabaseName()
@@ -90,34 +107,41 @@ Database::Database()
 	connect();
 }
 
+void Database::writeJob(job::Job job) {
+	Txn txn(impl);
+	writeJobs(&job, 1, &txn);
+	txn.commit();
+}
+
+void Database::writeJob(job::Job job, Txn* txn) {
+	writeJobs(&job, 1, txn);
+}
+
 void Database::writeJobs(job::Job* jobs, int32_t length)
+{
+	Txn txn(impl);
+	writeJobs(jobs, length, &txn);
+	txn.commit();
+}
+
+void Database::writeJobs(job::Job* jobs, int32_t length, Txn* txn)
 {
 	if (length <= 0) {
 		throw;
 	}
 
-	pqxx::work txn = pqxx::work(*impl->conn);
-
 	pqxx::table_path job_table_path({"job"});
-	auto s = pqxx::stream_to::table(txn, job_table_path, {
+	auto s = pqxx::stream_to::table(*txn, job_table_path, {
 		"parent_job_id",
 		"frequency_map",
 		"start",
-		"parent_frequency_map_index",
+		//"parent_frequency_map_index",
 		"finished"
 	});
 
 	for (int32_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
 
-		// std::string fm(
-		// 	reinterpret_cast<char*>(j.frequency_map.frequencies),
-		// 	NUM_LETTERS_IN_ALPHABET
-		// );
-		// pqxx::binarystring fm(
-		// 	reinterpret_cast<char*>(j.frequency_map.frequencies),
-		// 	NUM_LETTERS_IN_ALPHABET
-		// );
 		pqxx::bytes_view fm(
 			j.frequency_map.asStdBytePointer(),
 			NUM_LETTERS_IN_ALPHABET
@@ -126,42 +150,76 @@ void Database::writeJobs(job::Job* jobs, int32_t length)
 			j.parent_job_id,
 			fm,
 			j.start,
-			j.parent_frequency_map_index,
+			//j.parent_frequency_map_index,
 			j.finished
 		);
 	}
 
 	s.complete();
+}
+
+void Database::finishJobs(job::Job* jobs, int32_t length) {
+	Txn txn(impl);
+	finishJobs(jobs, length, &txn);
 	txn.commit();
 }
 
-void Database::writeCompleteSentence(job::Job job)
+void Database::finishJobs(job::Job* jobs, int32_t length, Txn* txn) {
+    if (length <= 0)
+	{
+		throw;
+	}
+
+    std::vector<JobID_t> ids;
+    ids.reserve(length);
+    for (int32_t i = 0; i < length; ++i) ids.push_back(jobs[i].job_id);
+
+    txn->txn->exec_params(
+        "UPDATE job SET finished = TRUE "
+        "WHERE job_id = ANY($1::BIGINT[]) AND finished IS DISTINCT FROM TRUE",
+        ids
+    );
+}
+
+shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job)
 {
-	// vector<FrequencyMapIndex_t> frequency_map_indices = {};
-	// do {
-	// 	frequency_map_indices.push_back(
-	// 		job.parent_frequency_map_index
-	// 	);
-	// } while (job.parent_frequency_map_index >= 0);
-	// pqxx::work txn = pqxx::work(*impl->conn);
-	
-	// std::vector<std::string> cols{"frequency_map_indices"};
-	// pqxx::stream_to s{txn, "found_sentences", cols};
-	
-	// int32_t length = frequency_map_indices.size();
-	// FrequencyMapIndex_t* buffer
-	// 	= new FrequencyMapIndex_t[length];
-	// for (int32_t i = 1; i <= length; i++) {
-	// 	buffer[length - i] = frequency_map_indices[i - 1];
-	// }
-	// pqxx::binarystring bs(
-	// 	reinterpret_cast<char*>(buffer),
-	// 	sizeof(FrequencyMapIndex_t) * length
-	// );
-	// s << std::make_tuple(bs);
-	// s.complete();
-	// txn.commit();
-	// delete[] buffer;
+	Txn txn(impl);
+	auto result = writeCompleteSentence(job, &txn);
+	txn.commit();
+	return result;
+}
+
+shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job, Txn* txn)
+{
+	printf("Writing complete sentence starting from job %ld\n", job.job_id);
+
+	static bool prepared = false;
+	if (!prepared) {
+		impl->conn->prepare("insert_arrays", "INSERT INTO found_sentences (frequency_map_indices) VALUES ($1)");
+		prepared = true;
+	}
+
+	//std::vector<FrequencyMapIndex_t> frequency_map_indices;
+	shared_ptr<vector<FrequencyMapIndex_t>> frequency_map_indices 
+		= make_shared<vector<FrequencyMapIndex_t>>();
+	frequency_map_indices->push_back(job.start);
+	printf("%d ", job.start);
+
+	while (job.parent_job_id > 0)
+	{
+		job = getJob(job.parent_job_id, txn);
+		// Don't add start from the root job
+		if (job.parent_job_id == 0) {
+			break;
+		}
+		printf("%d ", job.start);
+		frequency_map_indices->push_back(job.start);
+	}
+	printf("\n");
+
+	txn->txn->exec_prepared("insert_arrays", frequency_map_indices);
+
+	return frequency_map_indices;
 }
 
 void rowToJob(const pqxx::row* p_row, job::Job& j)
@@ -170,7 +228,7 @@ void rowToJob(const pqxx::row* p_row, job::Job& j)
 	j.job_id = row["job_id"].as<JobID_t>();
 	j.parent_job_id = row["parent_job_id"].as<JobID_t>();
 	j.start = row["start"].as<FrequencyMapIndex_t>();
-	j.parent_frequency_map_index = row["parent_frequency_map_index"].as<FrequencyMapIndex_t>();
+	//j.parent_frequency_map_index = row["parent_frequency_map_index"].as<FrequencyMapIndex_t>();
 	//pqxx::binarystring freq(row["frequency_map"]);
 	auto freq = row["frequency_map"].as<pqxx::bytes>();
 	std::memset(j.frequency_map.frequencies, 0, NUM_LETTERS_IN_ALPHABET);
@@ -182,7 +240,15 @@ void rowToJob(const pqxx::row* p_row, job::Job& j)
 	j.finished = row["finished"].as<bool>();
 }
 
-job::Job* Database::getUnfinishedJobs(int32_t length)
+int32_t Database::getUnfinishedJobs(int32_t length, job::Job*& buffer)
+{
+	Txn txn(impl);
+	int32_t out_count = getUnfinishedJobs(length, buffer, &txn);
+	txn.commit();
+	return out_count;
+}
+
+int32_t Database::getUnfinishedJobs(int32_t length, job::Job*& buffer, Txn* txn)
 {
 	if (length <= 0) {
 		throw;
@@ -193,7 +259,7 @@ job::Job* Database::getUnfinishedJobs(int32_t length)
 			"parent_job_id, "
 			"frequency_map, "
 			"start, "
-			"parent_frequency_map_index, "
+			//"parent_frequency_map_index, "
 			"finished "
 		"FROM job "
 		"WHERE finished = false "
@@ -201,31 +267,35 @@ job::Job* Database::getUnfinishedJobs(int32_t length)
 #ifdef TEST_DB
 	cout << "Executing query: " << query << endl;
 #endif
-	pqxx::work txn = pqxx::work(*impl->conn);
-#ifdef TEST_DB
-	cout << "Created transaction" << endl;
-#endif
-	pqxx::result res = txn.exec(query);
+	pqxx::result res = txn->txn->exec(query);
 #ifdef TEST_DB
 	cout << "Executed query, got " << res.size() << " results" << endl;
 #endif
 	int32_t out_count = res.size();
 	if (out_count == 0) {
-		return nullptr;
+		return 0;
 	}
-	job::Job* buffer = new Job[out_count];
+	buffer = new Job[out_count];
 	std::size_t i = 0;
 	for (auto const &row : res) {
 		Job& j = buffer[i++];
 		rowToJob(&row, j);
 	}
-	return buffer;
+	return out_count;
 }
 
 job::Job Database::getJob(JobID_t id)
 {
+	Txn txn(impl);
+	job::Job ret = getJob(id, &txn);
+	txn.commit();
+	return ret;
+}
+
+job::Job Database::getJob(JobID_t id, Txn* txn)
+{
 	if (id < 1) {
-		throw std::invalid_argument("invalid id");
+		throw std::invalid_argument("invalid id in Database::getJob: " + std::to_string(id));
 	}
 	std::string query =
 		std::string("SELECT "
@@ -233,12 +303,12 @@ job::Job Database::getJob(JobID_t id)
 			"parent_job_id, "
 			"frequency_map, "
 			"start, "
-			"parent_frequency_map_index, "
+			//"parent_frequency_map_index, "
 			"finished "
 		"FROM job "
 		"WHERE job_id = ") + std::to_string(id);
-	pqxx::work txn = pqxx::work(*impl->conn);
-	pqxx::result res = txn.exec(query);
+
+	pqxx::result res = txn->txn->exec(query);
 	int32_t out_count = res.size();
 	if (out_count != 1) {
 		throw;
