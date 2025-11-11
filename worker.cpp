@@ -5,6 +5,10 @@
 #include "dictionary.hpp"
 using namespace worker;
 
+using job::Job;
+using database::Database;
+using database::Txn;
+
 Worker::Worker(database::Database* p_db, dictionary::Dictionary* p_dict)
 {
     if (p_db == nullptr) {
@@ -19,7 +23,7 @@ Worker::Worker(database::Database* p_db, dictionary::Dictionary* p_dict)
 
 void Worker::WriteResult(Result result)
 {
-    if (result.num_new_jobs > 0) {
+     if (result.num_new_jobs > 0) {
         db->writeJobs(
             result.new_jobs,
             result.num_new_jobs
@@ -28,6 +32,23 @@ void Worker::WriteResult(Result result)
     for (int32_t i = 0; i < result.num_found_sentences; i++) {
         db->writeCompleteSentence(
             result.found_sentences[i]
+        );
+    }   
+}
+
+void Worker::WriteResult(Result result, Txn* txn)
+{
+    if (result.num_new_jobs > 0) {
+        db->writeJobs(
+            result.new_jobs,
+            result.num_new_jobs,
+            txn
+        );
+    }
+    for (int32_t i = 0; i < result.num_found_sentences; i++) {
+        db->writeCompleteSentence(
+            result.found_sentences[i],
+            txn
         );
     }
 }
@@ -44,6 +65,25 @@ void Worker::WriteResult(Result result, dictionary::Dictionary* dict)
         dict->printSentence(
             db->writeCompleteSentence(
                 result.found_sentences[i]
+            )
+        );
+    }
+}
+
+void Worker::WriteResult(Result result, dictionary::Dictionary* dict, Txn* txn)
+{
+    if (result.num_new_jobs > 0) {
+        db->writeJobs(
+            result.new_jobs,
+            result.num_new_jobs,
+            txn
+        );
+    }
+    for (int32_t i = 0; i < result.num_found_sentences; i++) {
+        dict->printSentence(
+            db->writeCompleteSentence(
+                result.found_sentences[i],
+                txn
             )
         );
     }

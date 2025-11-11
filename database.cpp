@@ -53,6 +53,17 @@ void Database::init()
 	putenv(pgpassword_putenv);
 }
 
+Txn* Database::beginTransaction()
+{
+	return new Txn(impl);
+}
+
+void Database::commitTransaction(Txn* txn)
+{
+	txn->commit();
+	delete txn;
+}
+
 Database::~Database()
 {
 	if (impl != nullptr) {
@@ -191,7 +202,9 @@ shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job
 
 shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job, Txn* txn)
 {
+#ifdef TEST_DB
 	printf("Writing complete sentence starting from job %ld\n", job.job_id);
+#endif
 
 	static bool prepared = false;
 	if (!prepared) {
@@ -203,7 +216,9 @@ shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job
 	shared_ptr<vector<FrequencyMapIndex_t>> frequency_map_indices 
 		= make_shared<vector<FrequencyMapIndex_t>>();
 	frequency_map_indices->push_back(job.start);
+#ifdef TEST_DB
 	printf("%d ", job.start);
+#endif
 
 	while (job.parent_job_id > 0)
 	{
@@ -212,10 +227,14 @@ shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job
 		if (job.parent_job_id == 0) {
 			break;
 		}
+#ifdef TEST_DB
 		printf("%d ", job.start);
+#endif
 		frequency_map_indices->push_back(job.start);
 	}
+#ifdef TEST_DB
 	printf("\n");
+#endif
 
 	txn->txn->exec_prepared("insert_arrays", frequency_map_indices);
 

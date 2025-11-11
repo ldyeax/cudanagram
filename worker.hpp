@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 using job::Job;
+using database::Database;
+using database::Txn;
 namespace worker {
     struct Result {
         Job* new_jobs;
@@ -23,7 +25,9 @@ namespace worker {
         dictionary::Dictionary* dict;
         virtual Result doJob(Job job) = 0;
         void WriteResult(Result result);
+        void WriteResult(Result result, database::Txn* txn);
         void WriteResult(Result result, dictionary::Dictionary* dict);
+        void WriteResult(Result result, dictionary::Dictionary* dict, database::Txn* txn);
         void WriteResult();
     };
     extern Worker* workerFactory_CPU(database::Database* db, dictionary::Dictionary* dict);
