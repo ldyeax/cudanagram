@@ -187,8 +187,8 @@ public:
 				#ifdef TEST_WORKER_GPU
 				fprintf(stderr, "Worker_GPU::doJob: job %ld produced %ld new jobs\n", i, num_new_jobs_i);
 				// read line to pause
-				std::string dummy;
-				std::getline(std::cin, dummy);
+				// std::string dummy;
+				// std::getline(std::cin, dummy);
 				#endif
 				num_total_new_jobs += num_new_jobs_i;
 				Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
