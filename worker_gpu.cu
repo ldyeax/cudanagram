@@ -1,4 +1,4 @@
-//#define DTEST_WORKER_GPU 1
+//#define TEST_WORKER_GPU 1
 
 #include "definitions.hpp"
 #include <iostream>
@@ -35,13 +35,13 @@ namespace worker_GPU {
 	)
 	{
 		int64_t index = blockIdx.x * blockDim.x + threadIdx.x;
-#ifdef DTEST_WORKER_GPU
+#ifdef TEST_WORKER_GPU
 		if (index == 0) {
 			printf("kernel launched with %d blocks of %d threads\n", gridDim.x, blockDim.x);
 		}
 #endif
 		if (index >= num_input_jobs) {
-// #ifdef DTEST_WORKER_GPU
+// #ifdef TEST_WORKER_GPU
 // 			printf("kernel: index %ld >= num_input_jobs %ld, returning\n", index, num_input_jobs);
 // #endif
 			return;
@@ -49,7 +49,7 @@ namespace worker_GPU {
 		d_job += index;
 		job::Job tmp_job = {};
 		tmp_job.parent_job_id = d_job->job_id;
-#ifdef DTEST_WORKER_GPU
+#ifdef TEST_WORKER_GPU
 		if (index == 0) {
 			printf("kernel: processing job %ld on index %ld\n", d_job->job_id, index);
 			d_job->d_print();
@@ -71,13 +71,13 @@ namespace worker_GPU {
 				&tmp_job.frequency_map
 			);
 			if (result == NO_MATCH) {
-#if DTEST_WORKER_GPU
+#if TEST_WORKER_GPU
 				if (index == 0) printf("kernel: job %ld: frequency map %d: no match, skipping\n", d_job->job_id, i);
 #endif
 				continue;
 			}
 			else if (result == COMPLETE_MATCH) {
-#if DTEST_WORKER_GPU
+#if TEST_WORKER_GPU
 				if (index == 0) printf("kernel: job %ld: frequency map %d: complete match\n", d_job->job_id, i);
 #endif
 				tmp_job.is_sentence = true;
@@ -127,14 +127,14 @@ public:
 
 		void doJob(Job* d_input_jobs, int64_t p_count) override
 		{
-			#ifdef DTEST_WORKER_GPU
+			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: processing %ld jobs on device %d\n", p_count, device_id);
 			fprintf(stderr, "Worker_GPU::doJob: max_input_jobs_per_iteration=%ld\n", max_input_jobs_per_iteration);
 			#endif
 			// launch kernel
 			dim3 blocks(WORKER_GPU_BLOCKS);
 			dim3 threads(WORKER_GPU_THREADS_PER_BLOCK);
-			#ifdef DTEST_WORKER_GPU
+			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: launching kernel with %d blocks of %d threads\n", blocks.x, threads.x);
 			#endif
 			kernel<<<blocks, threads>>>(
@@ -161,7 +161,7 @@ public:
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
-				#ifdef DTEST_WORKER_GPU
+				#ifdef TEST_WORKER_GPU
 				fprintf(stderr, "Worker_GPU::doJob: job %ld produced %ld new jobs\n", i, num_new_jobs_i);
 				// read line to pause
 				std::string dummy;
@@ -171,7 +171,7 @@ public:
 				Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
 				for (int64_t j = 0; j < num_new_jobs_i; j++) {
 					last_result.new_jobs.push_back(*tmp);
-					#if DTEST_WORKER_GPU
+					#if TEST_WORKER_GPU
 					tmp->print();
 					#endif
 					tmp++;
