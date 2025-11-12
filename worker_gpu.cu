@@ -329,6 +329,9 @@ public:
             int32_t num_devices = deviceCount();
             int64_t num_to_spawn
 				= std::min(max, (int64_t)num_devices);
+#ifdef TEST_WORKER_GPU
+			num_to_spawn = 1;
+#endif
             for (int64_t i = 0; i < num_to_spawn; i++) {
                 buffer[i] = new Worker_GPU(
 					db,
