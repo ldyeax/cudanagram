@@ -330,11 +330,14 @@ void Database::printFoundSentence(
 
 void Database::printFoundSentences(Dictionary* dict)
 {
+	cerr << "Printing found sentences:" << endl;
 	Txn* txn = beginTransaction();
 	pqxx::result res = txn->txn->exec(
-		"SELECT parent_job_id, start FROM job WHERE is_sentence = TRUE"
+		"SELECT job_id, parent_job_id, start FROM job WHERE is_sentence = TRUE"
 	);
 	for (auto const &row : res) {
+		JobID_t job_id = row["job_id"].as<JobID_t>();
+		cerr << "Found sentence job_id=" << job_id << endl;
 		JobID_t parent_id = row["parent_job_id"].as<JobID_t>();
 		FrequencyMapIndex_t start = row["start"].as<FrequencyMapIndex_t>();
 		shared_ptr<vector<FrequencyMapIndex_t>> indices = make_shared<vector<FrequencyMapIndex_t>>();
@@ -345,6 +348,7 @@ void Database::printFoundSentences(Dictionary* dict)
 			indices,
 			txn
 		);
+		cerr << "===" << endl;
 	}
 	commitTransaction(txn);
 }

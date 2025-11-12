@@ -259,14 +259,14 @@ void dictionary::Dictionary::printSentence(
 		// print current words
 		for (int32_t i = 0; i < iterators.size(); i++) {
 			if (i > 0) {
-				fprintf(stderr, " ");
+				printf(" ");
 			}
-			fprintf(stderr,
+			printf(
 				"%s",
 				words[*(iterators[i])].c_str()
 			);
 		}
-		fprintf(stderr, "\n");
+		printf("\n");
 		// increment iterators
 		int32_t carry = 1;
 		for (int32_t i = iterators.size() - 1; i >= 0; i--) {
