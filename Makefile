@@ -41,6 +41,11 @@ FM_CU = frequency_map.cu
 FM_O = frequency_map.o
 DICTIONARY_O = dictionary.o
 
+ifdef DTEST_WORKER_GPU
+    GPP_FLAGS  += -DTEST_WORKER_GPU
+    NVCC_CFLAGS += -DTEST_WORKER_GPU
+endif
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
