@@ -7,6 +7,12 @@
 #include <vector>
 #include <iostream>
 #include <string>
+
+// Forward declaration to avoid circular dependency
+namespace job {
+	struct Job;
+}
+
 using std::cout;
 using std::vector;
 using std::string;
@@ -43,6 +49,8 @@ namespace dictionary {
 		dictstats stats{};
 
 		void printStats();
+
+		int32_t createInitialjobs(job::Job* buffer);
 
 		FrequencyMapIndex_t getOrCreateFrequencyMapIndexByWordIndex(
 			int32_t w_i

@@ -33,8 +33,10 @@ void handle_sigint(int signal)
 int main()
 {
 	std::signal(SIGINT, handle_sigint);
+	string dummy;
 
     Dictionary* dict = new Dictionary(
+		//"mementomoriiftheninethlionatethesun",
 		"twomilkmengocomedy",
 		"dictionary.txt",
 		NULL,
@@ -45,10 +47,13 @@ int main()
     printf("Constructed database %p\n", database);
     // Worker* worker = worker::workerFactory_CPU(database, dict);
     // printf("Constructed CPU worker %p\n", worker);
-    Job startJob = {};
+
+	Job startJob = {};
     dict->copyInputFrequencyMap(&startJob.frequency_map);
     startJob.start = 0;
     database->writeUnfinishedJob(startJob);
+
+
     int64_t iteration = 0;
 
     worker::WorkerFactory* factory = worker::getWorkerFactory_CPU(database, dict);
@@ -61,6 +66,10 @@ int main()
     );
     printf("Spawned %ld CPU workers\n", num_workers);
     Job* unfinished_jobs = new Job[NUM_JOBS_PER_BATCH];
+
+	// int32_t num_initial = dict->createInitialjobs(unfinished_jobs);
+	// printf("Created %d initial jobs\n", num_initial);
+	// database->writeJobs(unfinished_jobs, num_initial);
 
     int64_t num_available_threads = 0;
     for (int64_t i = 0; i < num_workers; i++) {
@@ -171,6 +180,9 @@ int main()
 		// if (iteration >= 3) {
 		// 	return 0;
 		// }
+		//std::getline(std::cin, dummy);
     }
+
+	database->printFoundSentences(dict);
     return 0;
 }

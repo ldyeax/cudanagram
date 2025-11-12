@@ -15,13 +15,8 @@ CREATE TABLE job (
 	parent_job_id	BIGINT,
 	frequency_map	frequency_map NOT NULL,
 	start		INTEGER,
---	parent_frequency_map_index	INTEGER,
 	finished	BOOLEAN NOT NULL,
 	is_sentence	BOOLEAN NOT NULL
 );
--- CREATE TABLE found_sentences (
--- 	frequency_map_indices	INTEGER[] NOT NULL
--- );
-
 -- make tables unlogged
 ALTER TABLE job SET UNLOGGED;

@@ -11,12 +11,15 @@
 #include <cstdint>
 #include <vector>
 #include <tuple>
-
-
+#include "job.hpp"
 #include <arpa/inet.h>
 #include <cstdint>
 #include <vector>
 #include <cstring>
+
+using std::cout;
+using std::endl;
+using job::Job;
 
 // helper for 64-bit network byte order
 static inline uint64_t htonll(uint64_t v) {
@@ -288,54 +291,60 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
     );
 }
 
-// shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job)
-// {
-// 	Txn txn(impl);
-// 	auto result = writeCompleteSentence(job, &txn);
-// 	txn.commit();
-// 	return result;
-// }
 
-// shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job, Txn* txn)
-// {
-// #ifdef TEST_DB
-// 	printf("Writing complete sentence starting from job %ld\n", job.job_id);
-// #endif
+void Database::printFoundSentence(
+	FrequencyMapIndex_t start,
+	JobID_t parent_id,
+	Dictionary* dict,
+	shared_ptr<vector<FrequencyMapIndex_t>> indices,
+	Txn* txn
+)
+{
+	cout << start << endl;
+	indices->push_back(start);
+	if (parent_id != 0) {
+		pqxx::result res = txn->txn->exec(
+			"SELECT parent_job_id, start FROM job WHERE job_id = " + std::to_string(parent_id)
+		);
+		if (res.size() != 1) {
+			throw;
+		}
+		JobID_t next_parent_id = res[0]["parent_job_id"].as<JobID_t>();
+		FrequencyMapIndex_t next_start = res[0]["start"].as<FrequencyMapIndex_t>();
+		printFoundSentence(
+			next_start,
+			next_parent_id,
+			dict,
+			indices,
+			txn
+		);
+	}
+	else {
+		// Reached the root, print the sentence
+		dict->printSentence(indices);
+	}
+}
 
-// 	static bool prepared = false;
-// 	if (!prepared) {
-// 		impl->conn->prepare("insert_arrays", "INSERT INTO found_sentences (frequency_map_indices) VALUES ($1)");
-// 		prepared = true;
-// 	}
-
-// 	//std::vector<FrequencyMapIndex_t> frequency_map_indices;
-// 	shared_ptr<vector<FrequencyMapIndex_t>> frequency_map_indices
-// 		= make_shared<vector<FrequencyMapIndex_t>>();
-// 	frequency_map_indices->push_back(job.start);
-// #ifdef TEST_DB
-// 	printf("%d ", job.start);
-// #endif
-
-// 	while (job.parent_job_id > 0)
-// 	{
-// 		job = getJob(job.parent_job_id, txn);
-// 		// Don't add start from the root job
-// 		if (job.parent_job_id == 0) {
-// 			break;
-// 		}
-// #ifdef TEST_DB
-// 		printf("%d ", job.start);
-// #endif
-// 		frequency_map_indices->push_back(job.start);
-// 	}
-// #ifdef TEST_DB
-// 	printf("\n");
-// #endif
-
-// 	txn->txn->exec_prepared("insert_arrays", frequency_map_indices);
-
-// 	return frequency_map_indices;
-// }
+void Database::printFoundSentences(Dictionary* dict)
+{
+	Txn* txn = beginTransaction();
+	pqxx::result res = txn->txn->exec(
+		"SELECT parent_job_id, start FROM job WHERE is_sentence = TRUE"
+	);
+	for (auto const &row : res) {
+		JobID_t parent_id = row["parent_job_id"].as<JobID_t>();
+		FrequencyMapIndex_t start = row["start"].as<FrequencyMapIndex_t>();
+		shared_ptr<vector<FrequencyMapIndex_t>> indices = make_shared<vector<FrequencyMapIndex_t>>();
+		printFoundSentence(
+			start,
+			parent_id,
+			dict,
+			indices,
+			txn
+		);
+	}
+	commitTransaction(txn);
+}
 
 void rowToJob(const pqxx::row* p_row, job::Job& j)
 {
@@ -355,7 +364,7 @@ void rowToJob(const pqxx::row* p_row, job::Job& j)
 	j.finished = row["finished"].as<bool>();
 }
 
-int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer)
+int64_t Database::getUnfinishedJobs(int64_t length, Job* buffer)
 {
 	Txn txn(impl);
 	int64_t out_count = getUnfinishedJobs(length, buffer, &txn);
@@ -411,18 +420,6 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		getJobCountSlow(txn),
 		getUnfinishedJobCountSlow(txn)
 	);
-
-	// std::string query =
-	// 	std::string("SELECT "
-	// 		"job_id, "
-	// 		"parent_job_id, "
-	// 		"frequency_map, "
-	// 		"start, "
-	// 		//"parent_frequency_map_index, "
-	// 		"finished "
-	// 	"FROM job "
-	// 	"WHERE finished = false "
-	// 	"LIMIT ") + std::to_string(length);
 
 	std::string query =
 	std::string(

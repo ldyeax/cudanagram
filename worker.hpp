@@ -19,7 +19,6 @@ using dictionary::Dictionary;
 namespace worker {
     struct Result {
         vector<Job> new_jobs;
-        // vector<Job> found_sentences;
     };
     class Worker {
 	public:
@@ -37,7 +36,6 @@ namespace worker {
 		virtual void reset()
 		{
 			last_result.new_jobs.clear();
-			//last_result.found_sentences.clear();
 		}
         /**
          * Takes up to max_length jobs from the buffer, returns number of jobs taken.

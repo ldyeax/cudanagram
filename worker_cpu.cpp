@@ -82,7 +82,6 @@ public:
 				tmp_job.is_sentence = true;
 				tmp_job.finished = true;
 				last_result.new_jobs.push_back(tmp_job);
-				//last_result.found_sentences.push_back(tmp_job);
 			}
 		}
 	}

@@ -40,34 +40,7 @@ namespace worker_GPU {
         std::thread h_thread;
         int device_id;
         volatile bool ready = false;
-        /*
 
-        frequency_map::FrequencyMap tmp = {};
-		job::Job tmp_job = {};
-		tmp_job.parent_job_id = input.job_id;
-		FrequencyMapIndex_t start = input.start;
-		FrequencyMapIndex_t end = dict->frequency_maps_length;
-		if (start >= end) {
-			throw;
-		}
-
-		for (FrequencyMapIndex_t i = start; i < end; i++) {
-			frequency_map::Result result = dict->h_compareFrequencyMaps_pip(
-				&input.frequency_map,
-				i,
-				&tmp_job.frequency_map
-			);
-			if (result == INCOMPLETE_MATCH) {
-				tmp_job.start = i;
-				last_result.new_jobs.push_back(tmp_job);
-			}
-			else if (result == COMPLETE_MATCH) {
-				tmp_job.start = i;
-				last_result.found_sentences.push_back(tmp_job);
-			}
-		}
-
-        */
         __global__ void kernel(
             Job d_job,
             Dictionary* dict,

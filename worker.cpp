@@ -72,22 +72,12 @@ void Worker::WriteResult(Result* result, dictionary::Dictionary* dict, Txn* txn)
             txn
         );
     }
-	// if (dict != nullptr) {
-	// 	for (int32_t i = 0; i < result->found_sentences.size(); i++) {
-	// 		dict->printSentence(
-	// 			db->writeCompleteSentence(
-	// 				result->found_sentences[i],
-	// 				txn
-	// 			)
-	// 		);
-	// 	}
-	// }
 }
 
 void Worker::doJobs()
 {
-	last_result.new_jobs = vector<Job>{unfinished_jobs.size()};
-	//last_result.found_sentences = vector<Job>{unfinished_jobs.size()};
+	last_result.new_jobs.clear();
+	last_result.new_jobs.reserve(unfinished_jobs.size() * 100); // Reserve space for efficiency
 	for (int32_t i = 0; i < unfinished_jobs.size(); i++) {
 		doJob(*unfinished_jobs[i]);
 	}

@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstring>
 #include <memory>
+#include "job.hpp"
 using std::shared_ptr;
 using std::make_shared;
 using namespace dictionary;
@@ -283,4 +284,17 @@ void dictionary::Dictionary::printSentence(
 			break;
 		}
 	}
+}
+
+int32_t dictionary::Dictionary::createInitialjobs(job::Job* buffer)
+{
+	for (FrequencyMapIndex_t i = 0; i < frequency_maps_length; i++) {
+		buffer->parent_job_id = 0;
+		copyInputFrequencyMap(&buffer->frequency_map);
+		buffer->start = i;
+		buffer->finished = false;
+		buffer->is_sentence = false;
+		buffer++;
+	}
+	return frequency_maps_length;
 }

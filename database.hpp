@@ -4,10 +4,12 @@
 #include "job.hpp"
 #include <string>
 #include <memory>
+#include "dictionary.hpp"
 using std::unique_ptr;
 using std::vector;
 using std::shared_ptr;
 using std::make_shared;
+using dictionary::Dictionary;
 namespace database {
 	struct Impl;
 	struct Txn;
@@ -49,5 +51,13 @@ namespace database {
 		void finishJobs(job::Job* jobs, int64_t length);
 		void finishJobs(job::Job* jobs, int64_t length, Txn* txn);
 		void printJobsStats();
+		void printFoundSentence(
+			FrequencyMapIndex_t start,
+			JobID_t parent_id,
+			Dictionary* dict,
+			shared_ptr<vector<FrequencyMapIndex_t>> indices,
+			Txn* txn
+		);
+		void printFoundSentences(Dictionary* dict);
 	};
 }
