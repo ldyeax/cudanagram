@@ -259,7 +259,10 @@ public:
                 if (ready_to_start) {
 					ready_to_start = false;
                     doJobs();
-
+#ifdef TEST_WORKER_GPU
+					fprintf(stderr, "Worker_GPU::loop: done processing jobs, writing results to database\n");
+					fprintf(stderr, "Worker_GPU::loop: number of new jobs: %ld\n", last_result.new_jobs.size());
+#endif
 					auto txn = thread_db.beginTransaction();
 					WriteResult(&last_result, dict, txn);
 					thread_db.commitTransaction(txn);

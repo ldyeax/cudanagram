@@ -1,4 +1,7 @@
 //#define NUM_JOBS_PER_BATCH 1024*512
+
+// #define TEST_ANAGRAMMER 1
+
 #include "definitions.hpp"
 #include "anagrammer.hpp"
 #include <iostream>
@@ -170,8 +173,10 @@ void Anagrammer::run()
 		database->printJobsStats();
 
 		if (num_unfinished_jobs <= 0) {
+			cerr << "No unfinished jobs remaining, done." << endl;
 			break;
 		}
+		cerr << "Unfinished jobs remaining: " << num_unfinished_jobs << endl;
 
 		for (int64_t i = 0; i < num_workers; i++) {
 			workers[i]->reset();
@@ -182,10 +187,14 @@ void Anagrammer::run()
 		int64_t workers_assigned = 0;
 		bool first_assignment_iteration = true;
 		while (taken_jobs < num_unfinished_jobs) {
-			//fprintf(stderr, " Assigning jobs: taken %ld/%ld\n", taken_jobs, num_unfinished_jobs);
+#ifdef TEST_ANAGRAMMER
+			fprintf(stderr, " Assigning jobs: taken %ld/%ld\n", taken_jobs, num_unfinished_jobs);
+#endif
 			bool taken_this_loop = false;
 			for (int64_t i = 0; i < num_workers; i++) {
-				//fprintf(stderr, "i=%ld ", i);
+#ifdef TEST_ANAGRAMMER
+				fprintf(stderr, "i=%ld ", i);
+#endif
 				int64_t max_jobs_to_take = num_unfinished_jobs - taken_jobs;
 				if (max_jobs_to_take <= 0) {
 					//fprintf(stderr, " All jobs taken\n");
@@ -206,7 +215,9 @@ void Anagrammer::run()
 				cerr << " No jobs taken in loop " << endl;
 				return;
 			}
-			//fprintf(stderr, " Taken %ld/%ld jobs so far\n", taken_jobs, num_unfinished_jobs);
+#if defined(TEST_ANAGRAMMER)
+			fprintf(stderr, " Taken %ld/%ld jobs so far\n", taken_jobs, num_unfinished_jobs);
+#endif
 		}
 		fprintf(stderr, " Took %ld jobs\n", taken_jobs);
 		// get current time
