@@ -312,6 +312,9 @@ public:
         }
 
         int32_t numThreads() override {
+#ifdef TEST_WORKER_GPU
+			return 1;
+#endif
             return WORKER_GPU_BLOCKS * WORKER_GPU_THREADS_PER_BLOCK;
         }
     };
