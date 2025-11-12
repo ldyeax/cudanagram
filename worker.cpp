@@ -22,13 +22,13 @@ void Worker::loop()
 		}
 		ready_to_start = false;
 		finished = false;
-		//cout << "Worker_CPU " << id << " starting doJobs(): ready_to_start=" << ready_to_start << " finished= " << finished << endl;
+		//cerr << "Worker_CPU " << id << " starting doJobs(): ready_to_start=" << ready_to_start << " finished= " << finished << endl;
 		doJobs();
-		//cout << "Worker_CPU " << id << " finished doJobs(), creating " << last_result.new_jobs.size() << " new jobs: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
+		//cerr << "Worker_CPU " << id << " finished doJobs(), creating " << last_result.new_jobs.size() << " new jobs: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
 		auto txn = thread_db.beginTransaction();
-		//cout << "Worker_CPU " << id << " finished beginTransaction: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
+		//cerr << "Worker_CPU " << id << " finished beginTransaction: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
 		WriteResult(&last_result, dict, txn);
-		//cout << "Worker_CPU " << id << " committed " << last_result.new_jobs.size() << " new jobs." << endl;
+		//cerr << "Worker_CPU " << id << " committed " << last_result.new_jobs.size() << " new jobs." << endl;
 		// thread_db.finishJobs(
 		// 	last_result.new_jobs.data(),
 		// 	last_result.new_jobs.size(),
@@ -62,9 +62,9 @@ void Worker::WriteResult(Result* result, dictionary::Dictionary* dict, Txn* txn)
 	if (txn == nullptr) {
 		throw "no txn";
 	}
-	// printf("WriteResult result=%p dict=%p txn=%p db=%p txn=%p\n", (void*)result, (void*)dict, (void*)txn, (void*)db);
-	// printf("result->new_jobs.size() = %ld\n", result->new_jobs.size());
-	// printf("result->new_jobs.data() = %p\n", (void*)result->new_jobs.data());
+	// fprintf(stderr, "WriteResult result=%p dict=%p txn=%p db=%p txn=%p\n", (void*)result, (void*)dict, (void*)txn, (void*)db);
+	// fprintf(stderr, "result->new_jobs.size() = %ld\n", result->new_jobs.size());
+	// fprintf(stderr, "result->new_jobs.data() = %p\n", (void*)result->new_jobs.data());
     if (result->new_jobs.size() > 0) {
         db->writeJobs(
             result->new_jobs.data(),
@@ -79,7 +79,7 @@ void Worker::doJobs()
 	last_result.new_jobs.clear();
 	last_result.new_jobs.reserve(unfinished_jobs.size() * 100); // Reserve space for efficiency
 	for (int32_t i = 0; i < unfinished_jobs.size(); i++) {
-		doJob(*unfinished_jobs[i]);
+		doJob(unfinished_jobs[i], 1);
 	}
 }
 

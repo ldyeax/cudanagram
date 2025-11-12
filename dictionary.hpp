@@ -7,6 +7,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <cstdio>
 
 // Forward declaration to avoid circular dependency
 namespace job {

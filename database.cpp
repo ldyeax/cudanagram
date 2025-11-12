@@ -16,6 +16,8 @@
 #include <cstdint>
 #include <vector>
 #include <cstring>
+#include <stdio.h>
+#include <cstdio>
 
 using std::cout;
 using std::endl;
@@ -93,40 +95,40 @@ Database::~Database()
 Database::Database(std::string existing_db_name)
 {
 #ifdef TEST_DB
-	cout << "Constructing Database object with existing db name: " << existing_db_name << endl;
+	cerr << "Constructing Database object with existing db name: " << existing_db_name << endl;
 #endif
 	init();
 	db_name = existing_db_name;
 	connect();
 #ifdef TEST_DB
-	cout << "Connected to existing db" << endl;
+	cerr << "Connected to existing db" << endl;
 #endif
 }
 Database::Database(Database* other)
 {
 #ifdef TEST_DB
-	cout << "Constructing Database object with existing db name: " << other->db_name << endl;
+	cerr << "Constructing Database object with existing db name: " << other->db_name << endl;
 #endif
 	init();
 	db_name = other->db_name;
 	connect();
 #ifdef TEST_DB
-	cout << "Connected to existing db" << endl;
+	cerr << "Connected to existing db" << endl;
 #endif
 }
 
 void Database::create_db()
 {
 	db_name = getNewDatabaseName();
-	cout << "Creating db with name " << db_name << endl;
+	cerr << "Creating db with name " << db_name << endl;
 	string tmp = "psql -d postgres -U cudanagram -v dbname=";
 	tmp += db_name;
 	tmp += " -f setup.sql";
-	cout << "Executing command: " << tmp << endl;
+	cerr << "Executing command: " << tmp << endl;
 	if (system(tmp.c_str())) {
 		throw;
 	}
-	cout << "Created new db" << endl;
+	cerr << "Created new db" << endl;
 }
 
 void Database::connect()
@@ -135,8 +137,8 @@ void Database::connect()
 	tmp += db_name;
 	tmp += " user=cudanagram host=/var/run/postgresql";
 #ifdef TEST_DB
-	cout << "Connecting to db: " << tmp << endl;
-	printf("Impl=%p\n", impl);
+	cerr << "Connecting to db: " << tmp << endl;
+	fprintf(stderr, "Impl=%p\n", impl);
 #endif
 	impl->conn = make_unique<pqxx::connection>(tmp.c_str());
 }
@@ -300,7 +302,7 @@ void Database::printFoundSentence(
 	Txn* txn
 )
 {
-	//cout << start << endl;
+	//cerr << start << endl;
 
 	if (parent_id != 0) {
 		indices->push_back(start);
@@ -406,7 +408,7 @@ void Database::printJobsStats()
 	Txn txn(impl);
 	int64_t total_jobs = getJobCountSlow(&txn);
 	int64_t unfinished_jobs = getUnfinishedJobCountSlow(&txn);
-	cout << "Jobs stats: total_jobs=" << total_jobs
+	cerr << "Jobs stats: total_jobs=" << total_jobs
 		 << ", unfinished_jobs=" << unfinished_jobs << endl;
 	txn.commit();
 }
@@ -417,7 +419,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		throw;
 	}
 
-	printf("Found %ld jobs, of which %ld are unfinished\n",
+	fprintf(stderr, "Found %ld jobs, of which %ld are unfinished\n",
 		getJobCountSlow(txn),
 		getUnfinishedJobCountSlow(txn)
 	);
@@ -438,11 +440,11 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 	);
 
 #ifdef TEST_DB
-	cout << "Executing query: " << query << endl;
+	cerr << "Executing query: " << query << endl;
 #endif
 	pqxx::result res = txn->txn->exec(query);
 #ifdef TEST_DB
-	cout << "Executed query, got " << res.size() << " results" << endl;
+	cerr << "Executed query, got " << res.size() << " results" << endl;
 #endif
 	int64_t out_count = res.size();
 	if (out_count == 0) {

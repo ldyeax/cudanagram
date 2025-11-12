@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdio>
 #ifdef __CUDACC__
 	/**
 	* Wrappers for cuda calls to check for errors
@@ -16,30 +17,26 @@
 	 * - exit program if abort=true
 	 **/
 	inline void gpuAssert(
-			cudaError_t code, 
+			cudaError_t code,
 			const char *file,
 			int line,
 			bool abort = true,
-			void (*beforePrint)() = NULL) 
+			void (*beforePrint)() = NULL)
 	{
-		// printf("%s\n", cudaGetErrorString(code));
+		// fprintf(stderr, "%s\n", cudaGetErrorString(code));
 		if (code != cudaSuccess) {
 			if (beforePrint) {
 				beforePrint();
 			}
-			printf(
-			// fprintf(
-			//	stderr, 
+			fprintf(stderr,
+			// ffprintf(stderr,
+			//	stderr,
 				"GPUassert: %s %s %d\n",
 				cudaGetErrorString(code),
 				file,
 				line);
-			printf("%-10s\t%p\n", "d_Input",  d_Input);
-			printf("%-10s\t%p\n", "d_Output", d_Output);
-			printf("%-10s\t%p\n", "h_Input",  h_Input);
-			printf("%-10s\t%p\n", "h_Output", h_Output);
 			if (abort) {
-				printf("abort");
+				fprintf(stderr, "abort");
 				exit(code);
 			}
 		}

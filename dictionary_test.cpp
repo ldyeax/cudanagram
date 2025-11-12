@@ -24,15 +24,15 @@ int main()
 	d.printStats();
 
 	for (int32_t i = 0; i < d.words.size(); i++) {
-		cout << d.words[i] << " ";
+		cerr << d.words[i] << " ";
 	}
-	cout << endl;
+	cerr << endl;
 
 	assert(d.stats.initial_words_parsed == 6);
 	assert(d.stats.initial_words_removed == 1);
 	assert(d.stats.frequency_map_rejections == 1);
-	cout << "Frequency maps length: " << d.frequency_maps_length << endl;
-	cout << "Passed" << endl;
+	cerr << "Frequency maps length: " << d.frequency_maps_length << endl;
+	cerr << "Passed" << endl;
 
 	d = dictionary::Dictionary(
 		"twomilkmengocomedy",

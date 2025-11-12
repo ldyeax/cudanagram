@@ -10,9 +10,9 @@ using namespace std;
 
 // Print by-reference to the whole array (const: we only read)
 void print_result(const string& name, avx::Result result, int8_t (&tmp)[26]) {
-    cout << name << " -> any_negative=" << std::boolalpha << result.any_negative << " all_zero=" << std::boolalpha << result.all_zero << " : ";
-    for (int i = 0; i < 26; ++i) cout << int(tmp[i]) << ' ';  // cast so it prints numbers, not int8_ts
-    cout << endl;
+    cerr << name << " -> any_negative=" << std::boolalpha << result.any_negative << " all_zero=" << std::boolalpha << result.all_zero << " : ";
+    for (int i = 0; i < 26; ++i) cerr << int(tmp[i]) << ' ';  // cast so it prints numbers, not int8_ts
+    cerr << endl;
 }
 
 // Take array refs so sizes don’t decay; write result into tmp

@@ -4,6 +4,7 @@
 #include "definitions.hpp"
 #include "dictionary.hpp"
 #include <iostream>
+#include <cstdio>
 #define JobID_t int64_t
 using std::endl;
 using std::cout;
@@ -28,14 +29,14 @@ namespace job {
 		bool finished;
 		bool is_sentence;
 
-		constexpr void const print()
+		void print()
 		{
-			//std::cout << "Job " << job_id << ": parent_job_id=" << parent_job_id << " frequency_map=";
-			printf("Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
+			//std::cerr << "Job " << job_id << ": parent_job_id=" << parent_job_id << " frequency_map=";
+			fprintf(stderr, "Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
 			frequency_map.print();
-			//std::cout << " start=" << start << " parent_frequency_mapIndex=" << parent_frequency_map_index << " finished=" << finished << endl;
-			//printf(" start=%d parent_frequency_map_index=%d finished=%d\n", start, parent_frequency_map_index, finished);
-			printf(" start=%d finished=%d\n", start, finished);
+			//std::cerr << " start=" << start << " parent_frequency_mapIndex=" << parent_frequency_map_index << " finished=" << finished << endl;
+			//fprintf(stderr, " start=%d parent_frequency_map_index=%d finished=%d\n", start, parent_frequency_map_index, finished);
+			fprintf(stderr, " start=%d finished=%d\n", start, finished);
 		}
 	};
 }

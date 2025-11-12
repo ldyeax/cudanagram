@@ -6,9 +6,9 @@ using std::cout;
 using job::Job;
 int main()
 {
-	cout << "Testing db: " << std::endl;
+	cerr << "Testing db: " << std::endl;
 	database::Database mydb = database::Database();
-	cout << "Creating jobs: " << endl;
+	cerr << "Creating jobs: " << endl;
 	job::Job* buffer = new job::Job[4];
 	for (int32_t i = 0; i < 4; i++) {
 		Job& job = buffer[i];
@@ -31,18 +31,18 @@ int main()
 		j.print();
 	}
 
-	cout << "Created jobs" << endl;
-	cout << "Writing jobs to database..." << std::endl;
+	cerr << "Created jobs" << endl;
+	cerr << "Writing jobs to database..." << std::endl;
 	mydb.writeJobs(buffer, 4);
-	cout << "Written jobs to database." << std::endl;
-	cout << "Reading unfinished jobs from database..." << std::endl;
+	cerr << "Written jobs to database." << std::endl;
+	cerr << "Reading unfinished jobs from database..." << std::endl;
 	job::Job* unfinished;
 	int32_t num_unfinished = mydb.getUnfinishedJobs(10, unfinished);
 	if (num_unfinished == 0) {
-		cout << "No unfinished jobs found." << std::endl;
+		cerr << "No unfinished jobs found." << std::endl;
 	}
 	else {
-		cout << "Unfinished jobs:" << num_unfinished << std::endl;
+		cerr << "Unfinished jobs:" << num_unfinished << std::endl;
 		for (int32_t i = 0; i < num_unfinished; i++) {
 			Job& j = unfinished[i];
 			if (j.job_id == 0) {
@@ -51,16 +51,16 @@ int main()
 			j.print();
 		}
 	}
-	cout << "Read unfinished jobs from database." << std::endl;
+	cerr << "Read unfinished jobs from database." << std::endl;
 	for (int32_t i = 0; i <= 4; i++) {
-		cout << "Reading job " << i << " from database..." << std::endl;
+		cerr << "Reading job " << i << " from database..." << std::endl;
 		try {
 			job::Job j = mydb.getJob(i);
 			j.print();
-			cout << "Read job " << i << " from database." << std::endl;
+			cerr << "Read job " << i << " from database." << std::endl;
 		} catch (const std::exception& e) {
-			cout << "Failed to read job " << i << ": " << e.what() << std::endl;
+			cerr << "Failed to read job " << i << ": " << e.what() << std::endl;
 		}
 	}
-	std::cout << "Done" << std::endl;
+	std::cerr << "Done" << std::endl;
 }

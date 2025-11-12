@@ -25,7 +25,7 @@ namespace worker {
 		std::atomic<bool> ready_to_start{false};
 		virtual void doJobs();
 		virtual void loop();
-		virtual void doJob(job::Job input) = 0;
+		virtual void doJob(job::Job* input, int64_t count) = 0;
 		vector<Job*> unfinished_jobs;
 
         Result last_result = {};

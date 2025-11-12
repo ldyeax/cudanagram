@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <stdio.h>
+#include <cstdio>
 
 using std::string;
 
@@ -24,12 +26,12 @@ namespace frequency_map {
 			return (const std::byte*)&frequencies[0];
 		}
 
-		constexpr void print()
+		void print()
 		{
 			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
-				printf("%c=%d ", i+'A', frequencies[i]);
+				fprintf(stderr, "%c=%d ", i+'A', frequencies[i]);
 			}
-			printf("\n");
+			fprintf(stderr, "\n");
 		}
 	};
 	enum Result {

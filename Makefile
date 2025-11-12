@@ -4,7 +4,7 @@ PQXX_LIB    := $(PQXX_PREFIX)/lib
 
 GPP = g++
 GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations
-GPP_LDFLAGS = -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq -lncurses -ltinfo 
+GPP_LDFLAGS = -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq -lncurses -ltinfo
 
 TEST_DICTIONARY = dictionary_test
 TEST_DICTIONARY_O = dictionary_test.o
@@ -18,11 +18,11 @@ DB_SRC = database.cpp
 DB_O = database.o
 
 NVCC = nvcc
-NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC)
+NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math
 LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx
 
 TARGET = cudanagram
-SRC = main.cu
+SRC = cudanagram.cu
 TEST_CAP = "capabilities_test"
 TEST_CAP_SRC = capabilities_test.cu
 TEST_DB_SRC = database_test.cpp
@@ -33,14 +33,28 @@ DICTIONARY_CU = dictionary.cu
 NVCC_XLINKER = -Xlinker -rpath -Xlinker $(PQXX_LIB)
 
 WORKER_CPU_O = worker_cpu.o
+WORKER_CPU_SRC = worker_cpu.cpp
+WORKER_GPU_O = worker_gpu.o
+WORKER_GPU_SRC = worker_gpu.cu
 FM_CU = frequency_map.cu
+
+FM_O = frequency_map.o
+DICTIONARY_O = dictionary.o
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(GPP) $(GPP_FLAGS) -o $(AVX_O) $(AVX_SRC) $(GPP_LDFLAGS)
-	$(GPP) $(GPP_FLAGS) -o $(DB_O) $(DB_SRC) $(GPP_LDFLAGS)
-	$(NVCC) $(NVCC_CFLAGS)  -o $@ $^ $(LDFLAGS)
+	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
+	$(GPP) $(GPP_FLAGS) -c $(DB_SRC)
+	$(GPP) $(GPP_FLAGS) -c $(WORKER_CPU_SRC)
+	$(NVCC) $(NVCC_CFLAGS) -rdc=true -c $(DICTIONARY_CU) $(WORKER_GPU_SRC)
+	$(NVCC) $(NVCC_CFLAGS) -rdc=true -c $(FM_CU)
+	$(NVCC) $(NVCC_CFLAGS) \
+		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
+		$(DICTIONARY_O) $(FM_O) \
+		-o $(TARGET) \
+		$(SRC) anagrammer.cpp worker.cpp \
+		$(LDFLAGS)
 
 clean:
 	rm -f $(TARGET)
@@ -63,7 +77,7 @@ capabilities_test:
 
 database_test:
 	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
-	#$(GPP) $(GPP_FLAGS) -c $(DB_SRC) -Wl,-rpath,$(PQXX_LIB) 
+	#$(GPP) $(GPP_FLAGS) -c $(DB_SRC) -Wl,-rpath,$(PQXX_LIB)
 	$(GPP) $(GPP_FLAGS) -c $(DB_SRC) $(GPP_LDFLAGS)
 	$(NVCC) $(NVCC_CFLAGS) $(DB_O) $(AVX_O) -o $(TEST_DB) dictionary.cu frequency_map.cu database_test.cpp $(NVCC_XLINKER) $(LDFLAGS) -DTEST_DB
 
@@ -82,7 +96,9 @@ worker_cpu_test:
 	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
 	$(GPP) $(GPP_FLAGS) -c $(DB_SRC)
 	$(GPP) $(GPP_FLAGS) -c worker_cpu.cpp
-	$(GPP) $(GPP_FLAGS) $(AVX_O) $(DB_O) $(WORKER_CPU_O) \
+	$(GPP) $(GPP_FLAGS) -c worker_gpu.cpp
+	$(GPP) $(GPP_FLAGS) \
+		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
 		-o worker_cpu_test \
-		worker.cpp worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
+		anagrammer.cpp worker.cpp worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
 		$(GPP_LDFLAGS)

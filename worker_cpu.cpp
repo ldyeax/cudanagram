@@ -27,7 +27,7 @@ public:
 		: Worker(p_db, p_dict)
 	{
 		id = p_id;
-		//printf("Constructed CPU Worker\n");
+		//fprintf(stderr, "Constructed CPU Worker\n");
 		thread = std::thread(&Worker_CPU::loop, this);
 		thread.detach();
 	}
@@ -54,12 +54,12 @@ public:
 		return 1;
 	}
 
-	void doJob(job::Job input) override
+	void doJob(job::Job* p_input, int64_t p_count) override
 	{
 		frequency_map::FrequencyMap tmp = {};
 		job::Job tmp_job = {};
-		tmp_job.parent_job_id = input.job_id;
-		FrequencyMapIndex_t start = input.start;
+		tmp_job.parent_job_id = p_input->job_id;
+		FrequencyMapIndex_t start = p_input->start;
 		FrequencyMapIndex_t end = dict->frequency_maps_length;
 		if (start >= end) {
 			throw;
@@ -67,7 +67,7 @@ public:
 
 		for (FrequencyMapIndex_t i = start; i < end; i++) {
 			frequency_map::Result result = dict->h_compareFrequencyMaps_pip(
-				&input.frequency_map,
+				&p_input->frequency_map,
 				i,
 				&tmp_job.frequency_map
 			);
@@ -100,9 +100,9 @@ public:
 		unsigned int concurrent_threads = std::thread::hardware_concurrency();
 
 		if (concurrent_threads > 0) {
-			std::cout << "The system supports approximately " << concurrent_threads << " CPU threads." << std::endl;
+			std::cerr << "The system supports approximately " << concurrent_threads << " CPU threads." << std::endl;
 		} else {
-			std::cout << "The number of CPU threads could not be determined or is zero." << std::endl;
+			std::cerr << "The number of CPU threads could not be determined or is zero." << std::endl;
 			concurrent_threads = 16;
 		}
         int64_t count = 0;

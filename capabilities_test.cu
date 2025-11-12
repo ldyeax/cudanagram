@@ -75,11 +75,11 @@ int main(int argc, char** argv) {
     }
 
     if (deviceCount == 0) {
-        std::cout << "No CUDA devices found.\n";
+        std::cerr << "No CUDA devices found.\n";
         return 0;
     }
 
-    std::cout << "Found " << deviceCount << " CUDA device(s)\n\n";
+    std::cerr << "Found " << deviceCount << " CUDA device(s)\n\n";
 
     for (int dev = 0; dev < deviceCount; ++dev) {
         cudaDeviceProp p{};
@@ -97,47 +97,47 @@ int main(int argc, char** argv) {
         double busWidthBytes = p.memoryBusWidth / 8.0;   // bits -> bytes
         double approxBW_GBps = (memClockMHz * 1e6) * busWidthBytes * 2.0 / 1e9; // ~GB/s
 
-        std::cout << "Device " << dev << " : " << p.name << "\n";
-        std::cout << "  Compute Capability        : " << p.major << "." << p.minor << "\n";
-        std::cout << "  SMs (Streaming MPs)       : " << smCount << "\n";
-        std::cout << "  Est. CUDA cores (SPs)     : " << estSPs
+        std::cerr << "Device " << dev << " : " << p.name << "\n";
+        std::cerr << "  Compute Capability        : " << p.major << "." << p.minor << "\n";
+        std::cerr << "  SMs (Streaming MPs)       : " << smCount << "\n";
+        std::cerr << "  Est. CUDA cores (SPs)     : " << estSPs
                   << "  (" << spPerSM << " per SM; approx)\n";
-        std::cout << "  Global Memory             : " << bytesNice(p.totalGlobalMem) << "\n";
+        std::cerr << "  Global Memory             : " << bytesNice(p.totalGlobalMem) << "\n";
         if (p.l2CacheSize > 0) {
-            std::cout << "  L2 Cache                  : " << bytesNice(p.l2CacheSize) << "\n";
+            std::cerr << "  L2 Cache                  : " << bytesNice(p.l2CacheSize) << "\n";
         }
-        std::cout << "  Shared mem per block      : " << bytesNice(p.sharedMemPerBlock) << "\n";
+        std::cerr << "  Shared mem per block      : " << bytesNice(p.sharedMemPerBlock) << "\n";
 #if CUDART_VERSION >= 11000
-        std::cout << "  Shared mem per SM (opt)   : " << bytesNice(p.sharedMemPerMultiprocessor) << "\n";
+        std::cerr << "  Shared mem per SM (opt)   : " << bytesNice(p.sharedMemPerMultiprocessor) << "\n";
 #endif
-        std::cout << "  Registers per block       : " << p.regsPerBlock << "\n";
-        std::cout << "  Warp size                 : " << p.warpSize << "\n";
-        std::cout << "  Max threads / block       : " << p.maxThreadsPerBlock << "\n";
-        std::cout << "  Max threads / SM          : " << p.maxThreadsPerMultiProcessor << "\n";
-        std::cout << "  Max threads dims          : [" << p.maxThreadsDim[0] << ", "
+        std::cerr << "  Registers per block       : " << p.regsPerBlock << "\n";
+        std::cerr << "  Warp size                 : " << p.warpSize << "\n";
+        std::cerr << "  Max threads / block       : " << p.maxThreadsPerBlock << "\n";
+        std::cerr << "  Max threads / SM          : " << p.maxThreadsPerMultiProcessor << "\n";
+        std::cerr << "  Max threads dims          : [" << p.maxThreadsDim[0] << ", "
                                                    << p.maxThreadsDim[1] << ", "
                                                    << p.maxThreadsDim[2] << "]\n";
-        std::cout << "  Max grid dims             : [" << p.maxGridSize[0] << ", "
+        std::cerr << "  Max grid dims             : [" << p.maxGridSize[0] << ", "
                                                    << p.maxGridSize[1] << ", "
                                                    << p.maxGridSize[2] << "]\n";
-        std::cout << "  Clock rate (core)         : " << (p.clockRate/1000.0) << " MHz\n";
-        std::cout << "  Mem clock / bus           : " << memClockMHz << " MHz / " << p.memoryBusWidth << " bits\n";
-        std::cout << "  Approx mem bandwidth      : " << std::fixed << std::setprecision(1)
+        std::cerr << "  Clock rate (core)         : " << (p.clockRate/1000.0) << " MHz\n";
+        std::cerr << "  Mem clock / bus           : " << memClockMHz << " MHz / " << p.memoryBusWidth << " bits\n";
+        std::cerr << "  Approx mem bandwidth      : " << std::fixed << std::setprecision(1)
                   << approxBW_GBps << " GB/s (conservative)\n";
-        std::cout << "  PCI Bus:Device:Domain     : " << p.pciBusID << ":" << p.pciDeviceID
+        std::cerr << "  PCI Bus:Device:Domain     : " << p.pciBusID << ":" << p.pciDeviceID
 #if CUDART_VERSION >= 10000
                   << " (domain " << p.pciDomainID << ")\n";
 #else
                   << "\n";
 #endif
-        std::cout << "  Unified Addr / ECC / ConK : "
+        std::cerr << "  Unified Addr / ECC / ConK : "
                   << (p.unifiedAddressing ? "Yes" : "No") << " / "
                   << (p.ECCEnabled ? "Yes" : "No") << " / "
                   << (p.concurrentKernels ? "Yes" : "No") << "\n";
 
         // Theoretical max resident threads (not a launch limit, but a concurrency ceiling):
         const int maxThreadsResident = p.maxThreadsPerMultiProcessor * p.multiProcessorCount;
-        std::cout << "  Theoretical resident threads (all SMs): " << maxThreadsResident << "\n";
+        std::cerr << "  Theoretical resident threads (all SMs): " << maxThreadsResident << "\n";
 
         // Demonstrate occupancy for a chosen block size on the dummy kernel
         int activeBlocksPerSM = 0;
@@ -147,12 +147,12 @@ int main(int argc, char** argv) {
             int warpsPerBlock = (blockSize + p.warpSize - 1) / p.warpSize;
             int maxWarpsPerSM  = p.maxThreadsPerMultiProcessor / p.warpSize;
             double occ = 100.0 * (activeBlocksPerSM * blockSize) / p.maxThreadsPerMultiProcessor;
-            std::cout << "  Occupancy demo (block " << blockSize << "):\n"
+            std::cerr << "  Occupancy demo (block " << blockSize << "):\n"
                       << "    Max active blocks / SM : " << activeBlocksPerSM << "\n"
                       << "    Warps/block, warps/SM  : " << warpsPerBlock << ", " << maxWarpsPerSM << "\n"
                       << "    Approx occupancy       : " << std::fixed << std::setprecision(1) << occ << "%\n";
         } else {
-            std::cout << "  Occupancy demo unavailable: " << cudaGetErrorString(st) << "\n";
+            std::cerr << "  Occupancy demo unavailable: " << cudaGetErrorString(st) << "\n";
         }
 
         // If user provided a problem size, show how to pick grid dims.
@@ -168,14 +168,14 @@ int main(int argc, char** argv) {
                 long long gridY = (blocksNeeded + gridX - 1) / gridX;
                 gridY = std::min<long long>(gridY, p.maxGridSize[1]);
 
-                std::cout << "  Launch planning for N=" << problemSize << " with block=" << blockSize << ":\n"
+                std::cerr << "  Launch planning for N=" << problemSize << " with block=" << blockSize << ":\n"
                           << "    Blocks needed          : " << blocksNeeded << "\n"
                           << "    1D grid exceeds limit; example 2D grid:\n"
                           << "      dim3 grid(" << gridX << ", " << gridY << ", 1), dim3 block(" << blockSize << ", 1, 1)\n";
                 long long totalThreads = gridX * gridY * threadsPerBlock;
-                std::cout << "    Total launched threads : " << totalThreads << " (>= N)\n";
+                std::cerr << "    Total launched threads : " << totalThreads << " (>= N)\n";
             } else {
-                std::cout << "  Launch planning for N=" << problemSize << " with block=" << blockSize << ":\n"
+                std::cerr << "  Launch planning for N=" << problemSize << " with block=" << blockSize << ":\n"
                           << "    Blocks needed          : " << blocksNeeded << "\n"
                           << "    Suggested launch       : dim3 grid(" << blocksNeeded << ",1,1), "
                           << "dim3 block(" << blockSize << ",1,1)\n"
@@ -184,11 +184,11 @@ int main(int argc, char** argv) {
 
             // Show a simple heuristic for "enough blocks": e.g., 4x–8x SMs to help latency hiding
             long long minUsefulBlocks = std::max( (long long)smCount * 4, (long long)smCount ); // heuristic
-            std::cout << "    Heuristic (latency hiding): aim for >= " << minUsefulBlocks
+            std::cerr << "    Heuristic (latency hiding): aim for >= " << minUsefulBlocks
                       << " total blocks across the grid when feasible.\n";
         }
 
-        std::cout << std::string(72, '-') << "\n";
+        std::cerr << std::string(72, '-') << "\n";
     }
 
     return 0;

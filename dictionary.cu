@@ -9,6 +9,7 @@
 #include <cstring>
 #include <memory>
 #include "job.hpp"
+#include <iostream>
 using std::shared_ptr;
 using std::make_shared;
 using namespace dictionary;
@@ -16,12 +17,13 @@ using namespace frequency_map;
 using std::string;
 using std::vector;
 using std::endl;
+using std::cerr;
 
 void dictionary::Dictionary::printStats()
 {
-	cout << "Initial words parsed: " << stats.initial_words_parsed << endl;
-	cout << "Initial words removed: " << stats.initial_words_removed << endl;
-	cout << "Frequency map rejections: " << stats.frequency_map_rejections << endl;
+	cerr << "Initial words parsed: " << stats.initial_words_parsed << endl;
+	cerr << "Initial words removed: " << stats.initial_words_removed << endl;
+	cerr << "Frequency map rejections: " << stats.frequency_map_rejections << endl;
 }
 
 FrequencyMapIndex_t dictionary::Dictionary::getOrCreateFrequencyMapIndexByWordIndex(
@@ -43,7 +45,7 @@ FrequencyMapIndex_t dictionary::Dictionary::getOrCreateFrequencyMapIndexByWordIn
 void dictionary::Dictionary::init()
 {
 #if DICTIONARY_DEBUG
-	cout << "Dictionary init()" << endl;
+	cerr << "Dictionary init()" << endl;
 #endif
 	stats = {};
 	words = vector<string>();
@@ -53,12 +55,12 @@ void dictionary::Dictionary::init()
 	int8_t tmp2[NUM_LETTERS_IN_ALPHABET] = {};
 	for (int32_t i = 0; i < buffer_length; i++) {
 #if DICTIONARY_DEBUG
-		cout << i << ": " << (int8_t)(buffer[i]) << " " << buffer[i] << endl;
+		cerr << i << ": " << (int8_t)(buffer[i]) << " " << buffer[i] << endl;
 #endif
 		if (!buffer[i] || buffer[i] == '\r' || buffer[i] == '\n') {
 			i_tmp = 0;
 #if DICTIONARY_DEBUG
-			cout << "continuing" << endl;
+			cerr << "continuing" << endl;
 #endif
 			continue;
 		}
@@ -67,7 +69,7 @@ void dictionary::Dictionary::init()
 		}
 		if (buffer[i] < 'A' || buffer[i] > 'Z') {
 #if DICTIONARY_DEBUG
-			cout << "Invalid" << endl;
+			cerr << "Invalid" << endl;
 #endif
 			stats.initial_words_removed++;
 			i_tmp = 0;
@@ -75,7 +77,7 @@ void dictionary::Dictionary::init()
 				i++;
 			}
 #if DICTIONARY_DEBUG
-			cout << "brought i up to " << i << endl;
+			cerr << "brought i up to " << i << endl;
 #endif
 			continue;
 		}
@@ -93,11 +95,11 @@ void dictionary::Dictionary::init()
 			|| i + 1 >= buffer_length
 		) {
 #if DICTIONARY_DEBUG
-			cout << "adding word at " << i << endl;
+			cerr << "adding word at " << i << endl;
 #endif
 			tmp[i_tmp] = 0;
 #if DICTIONARY_DEBUG
-			printf("tmp: %s;\n", &tmp[0]);
+			fprintf(stderr, "tmp: %s;\n", &tmp[0]);
 #endif
 			i_tmp = 0;
 			stats.initial_words_parsed++;
@@ -143,7 +145,7 @@ dictionary::Dictionary::Dictionary(
 	input = string(p_input);
 	input_frequency_map = createFrequencyMap(p_input);
 	if (p_filename == NULL && p_buffer != NULL && p_buffer_length > 0) {
-		cout << "Initializing dictionary with buffer" << endl;
+		cerr << "Initializing dictionary with buffer" << endl;
 		buffer = new char[p_buffer_length];
 		buffer_length = p_buffer_length;
 		for (int i = 0; i < p_buffer_length; i++) {
@@ -152,7 +154,7 @@ dictionary::Dictionary::Dictionary(
 		init();
 	}
 	else if (p_filename != NULL && p_buffer == NULL) {
-		cout << "Initializing dictionary with filename" << endl;
+		cerr << "Initializing dictionary with filename" << endl;
 		FILE* fp = fopen(p_filename, "r");
 		if (fp == NULL) {
 			throw;
@@ -199,6 +201,8 @@ __device__ frequency_map::Result dictionary::Dictionary::d_compareFrequencyMaps_
 	}
 	return ret;
 }
+#else
+compilation error
 #endif
 
 __host__ frequency_map::Result dictionary::Dictionary::h_compareFrequencyMaps_pip(
@@ -255,14 +259,14 @@ void dictionary::Dictionary::printSentence(
 		// print current words
 		for (int32_t i = 0; i < iterators.size(); i++) {
 			if (i > 0) {
-				printf(" ");
+				fprintf(stderr, " ");
 			}
-			printf(
+			fprintf(stderr,
 				"%s",
 				words[*(iterators[i])].c_str()
 			);
 		}
-		printf("\n");
+		fprintf(stderr, "\n");
 		// increment iterators
 		int32_t carry = 1;
 		for (int32_t i = iterators.size() - 1; i >= 0; i--) {

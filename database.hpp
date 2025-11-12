@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include "dictionary.hpp"
+#include <stdio.h>
 using std::unique_ptr;
 using std::vector;
 using std::shared_ptr;
