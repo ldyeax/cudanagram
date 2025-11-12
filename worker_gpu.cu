@@ -1,4 +1,4 @@
-#define DTEST_WORKER_GPU 1
+//#define DTEST_WORKER_GPU 1
 
 #include "definitions.hpp"
 #include <iostream>
@@ -41,18 +41,20 @@ namespace worker_GPU {
 		}
 #endif
 		if (index >= num_input_jobs) {
-#ifdef DTEST_WORKER_GPU
-			printf("kernel: index %ld >= num_input_jobs %ld, returning\n", index, num_input_jobs);
-#endif
+// #ifdef DTEST_WORKER_GPU
+// 			printf("kernel: index %ld >= num_input_jobs %ld, returning\n", index, num_input_jobs);
+// #endif
 			return;
 		}
 		d_job += index;
 		job::Job tmp_job = {};
 		tmp_job.parent_job_id = d_job->job_id;
 #ifdef DTEST_WORKER_GPU
-		printf("kernel: processing job %ld on index %ld\n", d_job->job_id, index);
-		d_job->d_print();
-		printf("tmp_job.parent_job_id = %ld\n", tmp_job.parent_job_id);
+		if (index == 0) {
+			printf("kernel: processing job %ld on index %ld\n", d_job->job_id, index);
+			d_job->d_print();
+			printf("tmp_job.parent_job_id = %ld\n", tmp_job.parent_job_id);
+		}
 #endif
 		FrequencyMapIndex_t start = d_job->start;
 		FrequencyMapIndex_t end = dict->frequency_maps_length;
@@ -70,13 +72,13 @@ namespace worker_GPU {
 			);
 			if (result == NO_MATCH) {
 #if DTEST_WORKER_GPU
-				printf("kernel: job %ld: frequency map %d: no match, skipping\n", d_job->job_id, i);
+				if (index == 0) printf("kernel: job %ld: frequency map %d: no match, skipping\n", d_job->job_id, i);
 #endif
 				continue;
 			}
 			else if (result == COMPLETE_MATCH) {
 #if DTEST_WORKER_GPU
-				printf("kernel: job %ld: frequency map %d: complete match\n", d_job->job_id, i);
+				if (index == 0) printf("kernel: job %ld: frequency map %d: complete match\n", d_job->job_id, i);
 #endif
 				tmp_job.is_sentence = true;
 			}
