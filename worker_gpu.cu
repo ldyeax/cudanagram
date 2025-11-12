@@ -1,3 +1,5 @@
+#define DTEST_WORKER_GPU 1
+
 #include "definitions.hpp"
 #include <iostream>
 #include <cuda_runtime.h>
@@ -104,9 +106,16 @@ public:
 
 		void doJob(Job* d_input_jobs, int64_t p_count) override
 		{
+			#ifdef DTEST_WORKER_GPU
+			fprintf(stderr, "Worker_GPU::doJob: processing %ld jobs on device %d\n", p_count, device_id);
+			fprintf(stderr, "Worker_GPU::doJob: max_input_jobs_per_iteration=%ld\n", max_input_jobs_per_iteration);
+			#endif
 			// launch kernel
 			dim3 blocks(WORKER_GPU_BLOCKS);
 			dim3 threads(WORKER_GPU_THREADS_PER_BLOCK);
+			#ifdef DTEST_WORKER_GPU
+			fprintf(stderr, "Worker_GPU::doJob: launching kernel with %d blocks of %d threads\n", blocks.x, threads.x);
+			#endif
 			kernel<<<blocks, threads>>>(
 				d_input_jobs,
 				d_dict,
@@ -126,6 +135,9 @@ public:
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
+				#ifdef DTEST_WORKER_GPU
+				fprintf(stderr, "Worker_GPU::doJob: job %ld produced %ld new jobs\n", i, num_new_jobs_i);
+				#endif
 				num_total_new_jobs += num_new_jobs_i;
 				Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
 				for (int64_t j = 0; j < num_new_jobs_i; j++) {
