@@ -145,6 +145,9 @@ public:
 				Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
 				for (int64_t j = 0; j < num_new_jobs_i; j++) {
 					last_result.new_jobs.push_back(*tmp);
+					#if DTEST_WORKER_GPU
+					tmp->print();
+					#endif
 					tmp++;
 				}
 			}
