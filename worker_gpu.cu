@@ -258,6 +258,9 @@ public:
             while (true) {
                 if (ready_to_start) {
 					ready_to_start = false;
+#ifdef TEST_WORKER_GPU
+					fprintf(stderr, "Worker_GPU::loop: starting to process jobs on device %d\n", device_id);
+#endif
                     doJobs();
 #ifdef TEST_WORKER_GPU
 					fprintf(stderr, "Worker_GPU::loop: done processing jobs, writing results to database\n");
@@ -286,6 +289,9 @@ public:
 			int64_t to_take = std::min(
 				(int64_t)numThreads(), max_length
 			);
+#ifdef TEST_WORKER_GPU
+			fprintf(stderr, "Worker_GPU::takeJobs: taking %ld jobs on device %d\n", to_take, device_id);
+#endif
             for (int64_t i = 0; i < to_take; i++) {
 				h_unfinished_jobs.push_back(buffer++);
 			}
@@ -293,6 +299,7 @@ public:
         }
 
         void doJobs_async() override {
+			finished = false;
             ready_to_start = true;
         }
 

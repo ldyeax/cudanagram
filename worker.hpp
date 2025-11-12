@@ -35,6 +35,8 @@ namespace worker {
         std::atomic<bool> finished{false};
 		virtual void reset()
 		{
+			finished = false;
+			ready_to_start = false;
 			last_result.new_jobs.clear();
 		}
         /**
