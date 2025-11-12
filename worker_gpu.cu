@@ -35,12 +35,25 @@ namespace worker_GPU {
 	)
 	{
 		int64_t index = blockIdx.x * blockDim.x + threadIdx.x;
+#ifdef DTEST_WORKER_GPU
+		if (index == 0) {
+			printf("kernel launched with %d blocks of %d threads\n", gridDim.x, blockDim.x);
+		}
+#endif
 		if (index >= num_input_jobs) {
+#ifdef DTEST_WORKER_GPU
+			printf("kernel: index %ld >= num_input_jobs %ld, returning\n", index, num_input_jobs);
+#endif
 			return;
 		}
 		d_job += index;
 		job::Job tmp_job = {};
 		tmp_job.parent_job_id = d_job->job_id;
+#ifdef DTEST_WORKER_GPU
+		printf("kernel: processing job %ld on index %ld\n", d_job->job_id, index);
+		d_job->print();
+		printf("tmp_job.parent_job_id = %ld\n", tmp_job.parent_job_id);
+#endif
 		FrequencyMapIndex_t start = d_job->start;
 		FrequencyMapIndex_t end = dict->frequency_maps_length;
 		if (start >= end) {
@@ -56,9 +69,15 @@ namespace worker_GPU {
 				&tmp_job.frequency_map
 			);
 			if (result == NO_MATCH) {
+#if DTEST_WORKER_GPU
+				printf("kernel: job %ld: frequency map %d: no match, skipping\n", d_job->job_id, i);
+#endif
 				continue;
 			}
 			else if (result == COMPLETE_MATCH) {
+#if DTEST_WORKER_GPU
+				printf("kernel: job %ld: frequency map %d: complete match\n", d_job->job_id, i);
+#endif
 				tmp_job.is_sentence = true;
 			}
 			tmp_job.start = i;
@@ -131,7 +150,12 @@ public:
 				sizeof(int64_t) * p_count,
 				cudaMemcpyDeviceToHost
 			));
-			// copy whole new jobs buffer back to host
+			gpuErrChk(cudaMemcpy(
+				h_new_jobs_tmp,
+				d_new_jobs,
+				sizeof(Job) * max_new_jobs_per_job * p_count,
+				cudaMemcpyDeviceToHost
+			));
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
