@@ -53,6 +53,8 @@ namespace worker_GPU {
 			return;
 		}
 		job::Job tmp_job = {};
+		tmp_job.is_sentence = false;
+		tmp_job.finished = false;
 		tmp_job.parent_job_id = d_job->job_id;
 #ifdef TEST_WORKER_GPU
 		if (index == 0) {
