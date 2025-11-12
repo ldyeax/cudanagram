@@ -72,6 +72,9 @@ int main()
         Txn* txn = database->beginTransaction();
         int64_t num_unfinished_jobs
             = database->getUnfinishedJobs(NUM_JOBS_PER_BATCH, unfinished_jobs, txn);
+		database->commitTransaction(txn);
+		database->printJobsStats();
+
         if (num_unfinished_jobs <= 0) {
             break;
         }
@@ -81,7 +84,7 @@ int main()
 		}
 
         int64_t taken_jobs = 0;
-        // If there are 16 workers and 1024 jobs, wach worker gets 1024/16 jobs
+        // If there are 16 workers and 1024 jobs, each worker gets 1024/16 jobs
 		int64_t workers_assigned = 0;
 		bool first_assignment_iteration = true;
         while (taken_jobs < num_unfinished_jobs) {
@@ -120,6 +123,7 @@ int main()
 			//printf(" Started worker %d\n", i);
 		}
 		bool all_finished = false;
+		string to_finish_string = "UPDATE job SET finished = TRUE WHERE job_id = ANY($1::BIGINT[])";
 		while (!all_finished) {
 			for (int32_t i = 0; i < workers_assigned; i++) {
 				if (!workers[i]->finished) {
@@ -131,24 +135,34 @@ int main()
 		}
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-		printf(" Jobs/second processed: %.2f\n", (num_unfinished_jobs / (duration / 1000.0)));
-		auto start_write_results_time = std::chrono::high_resolution_clock::now();
-		for (int32_t i = 0; i < workers_assigned; i++) {
-			// while (!workers[i]->finished) {
-			// //	printf(" Waiting for worker %d to finish...\n", i);
-			// 	usleep(100);
-			// }
-			//printf(" Writing results for worker %d\n", i);
-			workers[i]->WriteResult(nullptr, nullptr, txn);
-			// cout << " Worker " << i << " finished" << endl;
-		}
-		auto end_write_results_time = std::chrono::high_resolution_clock::now();
-		auto duration_write_results = std::chrono::duration_cast<std::chrono::milliseconds>(end_write_results_time - start_write_results_time).count();
-		printf(" WriteResult() time: %ld ms\n", duration_write_results);
-		printf(" WriteResult() Jobs/second: %.2f\n", (num_unfinished_jobs / (duration_write_results / 1000.0)));
+		printf(" Jobs/second processed+write: %.2f\n", (num_unfinished_jobs / (duration / 1000.0)));
+		// auto start_write_results_time = std::chrono::high_resolution_clock::now();
+		// for (int32_t i = 0; i < workers_assigned; i++) {
+		// 	// while (!workers[i]->finished) {
+		// 	// //	printf(" Waiting for worker %d to finish...\n", i);
+		// 	// 	usleep(100);
+		// 	// }
+		// 	//printf(" Writing results for worker %d\n", i);
+		// 	workers[i]->WriteResult(nullptr, nullptr, txn);
+		// 	// cout << " Worker " << i << " finished" << endl;
+		// }
+		// auto end_write_results_time = std::chrono::high_resolution_clock::now();
+		// auto duration_write_results = std::chrono::duration_cast<std::chrono::milliseconds>(end_write_results_time - start_write_results_time).count();
+		// printf(" WriteResult() time: %ld ms\n", duration_write_results);
+		// printf(" WriteResult() Jobs/second: %.2f\n", (num_unfinished_jobs / (duration_write_results / 1000.0)));
 		iteration++;
-		database->finishJobs(unfinished_jobs, num_unfinished_jobs, txn);
-		database->commitTransaction(txn);
+		// auto start_finishjobs_time = std::chrono::high_resolution_clock::now();
+		// database->finishJobs(unfinished_jobs, num_unfinished_jobs, txn);
+		// auto end_finishjobs_time = std::chrono::high_resolution_clock::now();
+		// auto duration_finishjobs = std::chrono::duration_cast<std::chrono::milliseconds>(end_finishjobs_time - start_finishjobs_time).count();
+		// printf(" finishJobs() time: %ld ms\n", duration_finishjobs);
+		// printf(" finishJobs() Jobs/second: %.2f\n", (num_unfinished_jobs / (duration_finishjobs / 1000.0)));
+		// auto start_commit_time = std::chrono::high_resolution_clock::now();
+		// database->commitTransaction(txn);
+		// auto end_commit_time = std::chrono::high_resolution_clock::now();
+		// auto duration_commit = std::chrono::duration_cast<std::chrono::milliseconds>(end_commit_time - start_commit_time).count();
+		// printf(" commitTransaction() time: %ld ms\n", duration_commit);
+		// printf(" commitTransaction() Jobs/second: %.2f\n", (num_unfinished_jobs / (duration_commit / 1000.0)));
 		auto end_time_whole_loop = std::chrono::high_resolution_clock::now();
 		auto duration_whole_loop = std::chrono::duration_cast<std::chrono::milliseconds>(end_time_whole_loop - start_time_whole_loop).count();
 		printf(" Whole loop time: %ld ms\n", duration_whole_loop);

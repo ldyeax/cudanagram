@@ -12,32 +12,10 @@ using job::Job;
 using std::cout;
 using std::endl;
 
-/**
-    struct Result {
-        vector<Job> new_jobs;
-        vector<Job> found_sentences;
-    };
- **/
-
 class Worker_CPU : public Worker {
 private:
 	int32_t id;
-	std::atomic<bool> ready_to_start{false};
-	void loop()
-	{
-		while (true) {
-			while (!ready_to_start) {
-				std::this_thread::yield();
-			}
-			ready_to_start = false;
-			finished = false;
-			//cout << "Worker_CPU " << id << " starting doJobs()" << endl;
-			doJobs();
-			//cout << "Worker_CPU " << id << " finished doJobs(), creating " << last_result.new_jobs.size() << " new jobs and " << last_result.found_sentences.size() << " found sentences." << endl;
-			finished = true;
-		}
-	}
-	vector<Job*> unfinished_jobs;
+
 public:
 	void reset() override
 	{
@@ -64,17 +42,6 @@ public:
 		return 1;
 	}
 
-	void doJobs()
-	{
-		finished = false;
-		last_result.new_jobs = vector<Job>{unfinished_jobs.size()};
-		last_result.found_sentences = vector<Job>{unfinished_jobs.size()};
-		for (int32_t i = 0; i < unfinished_jobs.size(); i++) {
-			doJob(*unfinished_jobs[i]);
-		}
-		finished = true;
-		//cout << "Worker_CPU finished " << num_unfinished_jobs << " jobs and set the atomic bool to true." << endl;
-	}
 
 	void doJobs_async() override
 	{
@@ -87,7 +54,7 @@ public:
 		return 1;
 	}
 
-	void doJob(job::Job input)
+	void doJob(job::Job input) override
 	{
 		frequency_map::FrequencyMap tmp = {};
 		job::Job tmp_job = {};
@@ -106,11 +73,16 @@ public:
 			);
 			if (result == INCOMPLETE_MATCH) {
 				tmp_job.start = i;
+				tmp_job.is_sentence = false;
+				tmp_job.finished = false;
 				last_result.new_jobs.push_back(tmp_job);
 			}
 			else if (result == COMPLETE_MATCH) {
 				tmp_job.start = i;
-				last_result.found_sentences.push_back(tmp_job);
+				tmp_job.is_sentence = true;
+				tmp_job.finished = true;
+				last_result.new_jobs.push_back(tmp_job);
+				//last_result.found_sentences.push_back(tmp_job);
 			}
 		}
 	}

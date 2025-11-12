@@ -26,6 +26,7 @@ namespace job {
 		//  * **/
 		// FrequencyMapIndex_t parent_frequency_map_index;
 		bool finished;
+		bool is_sentence;
 
 		constexpr void const print()
 		{

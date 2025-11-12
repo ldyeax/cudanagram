@@ -19,10 +19,16 @@ using dictionary::Dictionary;
 namespace worker {
     struct Result {
         vector<Job> new_jobs;
-        vector<Job> found_sentences;
+        // vector<Job> found_sentences;
     };
     class Worker {
-    public:
+	public:
+		std::atomic<bool> ready_to_start{false};
+		virtual void doJobs();
+		virtual void loop();
+		virtual void doJob(job::Job input) = 0;
+		vector<Job*> unfinished_jobs;
+
         Result last_result = {};
         Worker(database::Database* db, dictionary::Dictionary* dict);
         database::Database* db = nullptr;
@@ -31,7 +37,7 @@ namespace worker {
 		virtual void reset()
 		{
 			last_result.new_jobs.clear();
-			last_result.found_sentences.clear();
+			//last_result.found_sentences.clear();
 		}
         /**
          * Takes up to max_length jobs from the buffer, returns number of jobs taken.
@@ -41,7 +47,7 @@ namespace worker {
 		 *  before starting the processing batch
          **/
         virtual int64_t takeJobs(Job* buffer, int64_t max_length) = 0;
-        virtual void doJobs_async() = 0;
+        virtual void doJobs_async();
         virtual int32_t numThreads() = 0;
         void WriteResult(Result* result, dictionary::Dictionary* dict, database::Txn* txn);
     };

@@ -99,6 +99,18 @@ Database::Database(std::string existing_db_name)
 	cout << "Connected to existing db" << endl;
 #endif
 }
+Database::Database(Database* other)
+{
+#ifdef TEST_DB
+	cout << "Constructing Database object with existing db name: " << other->db_name << endl;
+#endif
+	init();
+	db_name = other->db_name;
+	connect();
+#ifdef TEST_DB
+	cout << "Connected to existing db" << endl;
+#endif
+}
 
 void Database::create_db()
 {
@@ -135,24 +147,24 @@ Database::Database()
 
 void Database::writeUnfinishedJob(job::Job job) {
 	Txn txn(impl);
-	writeUnfinishedJobs(&job, 1, &txn);
+	writeJobs(&job, 1, &txn);
 	txn.commit();
 }
 
 void Database::writeUnfinishedJob(job::Job job, Txn* txn) {
-	writeUnfinishedJobs(&job, 1, txn);
+	writeJobs(&job, 1, txn);
 }
 
-void Database::writeUnfinishedJobs(job::Job* jobs, int64_t length)
+void Database::writeJobs(job::Job* jobs, int64_t length)
 {
 	Txn txn(impl);
-	writeUnfinishedJobs(jobs, length, &txn);
+	writeJobs(jobs, length, &txn);
 	txn.commit();
 }
 
 
 
-void Database::writeUnfinishedJobs(job::Job* jobs, int64_t length, Txn* txn)
+void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
 	if (length <= 0) {
 		throw;
@@ -163,7 +175,8 @@ void Database::writeUnfinishedJobs(job::Job* jobs, int64_t length, Txn* txn)
 			"parent_job_id",
 			"frequency_map",
 			"start",
-			"finished"
+			"finished",
+			"is_sentence"
 		});
 
 		for (int32_t i = 0; i < length; i++) {
@@ -177,7 +190,8 @@ void Database::writeUnfinishedJobs(job::Job* jobs, int64_t length, Txn* txn)
 				j.parent_job_id,
 				fm,
 				j.start,
-				false
+				j.finished,
+				j.is_sentence
 			);
 		}
 
@@ -241,6 +255,16 @@ void Database::writeUnfinishedJobs(job::Job* jobs, int64_t length, Txn* txn)
 	// }
 }
 
+// void Database::finishJobs_startBuilding() {
+// 	if (finishJobs_buffer != nullptr) {
+// 		delete[] finishJobs_buffer;
+// 		finishJobs_buffer = nullptr;
+// 		finishJobs_buffer_size = 0;
+// 	}
+// 	finishJobs_buffer = new char[1024 * 1024]; // 1 MB initial buffer
+// 	finishJobs_buffer_size = 0;
+// }
+
 void Database::finishJobs(job::Job* jobs, int64_t length) {
 	Txn txn(impl);
 	finishJobs(jobs, length, &txn);
@@ -259,59 +283,59 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
 
     txn->txn->exec_params(
         "UPDATE job SET finished = TRUE "
-        "WHERE job_id = ANY($1::BIGINT[]) AND finished IS DISTINCT FROM TRUE",
+        "WHERE job_id = ANY($1::BIGINT[])",
         ids
     );
 }
 
-shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job)
-{
-	Txn txn(impl);
-	auto result = writeCompleteSentence(job, &txn);
-	txn.commit();
-	return result;
-}
+// shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job)
+// {
+// 	Txn txn(impl);
+// 	auto result = writeCompleteSentence(job, &txn);
+// 	txn.commit();
+// 	return result;
+// }
 
-shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job, Txn* txn)
-{
-#ifdef TEST_DB
-	printf("Writing complete sentence starting from job %ld\n", job.job_id);
-#endif
+// shared_ptr<vector<FrequencyMapIndex_t>> Database::writeCompleteSentence(job::Job job, Txn* txn)
+// {
+// #ifdef TEST_DB
+// 	printf("Writing complete sentence starting from job %ld\n", job.job_id);
+// #endif
 
-	static bool prepared = false;
-	if (!prepared) {
-		impl->conn->prepare("insert_arrays", "INSERT INTO found_sentences (frequency_map_indices) VALUES ($1)");
-		prepared = true;
-	}
+// 	static bool prepared = false;
+// 	if (!prepared) {
+// 		impl->conn->prepare("insert_arrays", "INSERT INTO found_sentences (frequency_map_indices) VALUES ($1)");
+// 		prepared = true;
+// 	}
 
-	//std::vector<FrequencyMapIndex_t> frequency_map_indices;
-	shared_ptr<vector<FrequencyMapIndex_t>> frequency_map_indices
-		= make_shared<vector<FrequencyMapIndex_t>>();
-	frequency_map_indices->push_back(job.start);
-#ifdef TEST_DB
-	printf("%d ", job.start);
-#endif
+// 	//std::vector<FrequencyMapIndex_t> frequency_map_indices;
+// 	shared_ptr<vector<FrequencyMapIndex_t>> frequency_map_indices
+// 		= make_shared<vector<FrequencyMapIndex_t>>();
+// 	frequency_map_indices->push_back(job.start);
+// #ifdef TEST_DB
+// 	printf("%d ", job.start);
+// #endif
 
-	while (job.parent_job_id > 0)
-	{
-		job = getJob(job.parent_job_id, txn);
-		// Don't add start from the root job
-		if (job.parent_job_id == 0) {
-			break;
-		}
-#ifdef TEST_DB
-		printf("%d ", job.start);
-#endif
-		frequency_map_indices->push_back(job.start);
-	}
-#ifdef TEST_DB
-	printf("\n");
-#endif
+// 	while (job.parent_job_id > 0)
+// 	{
+// 		job = getJob(job.parent_job_id, txn);
+// 		// Don't add start from the root job
+// 		if (job.parent_job_id == 0) {
+// 			break;
+// 		}
+// #ifdef TEST_DB
+// 		printf("%d ", job.start);
+// #endif
+// 		frequency_map_indices->push_back(job.start);
+// 	}
+// #ifdef TEST_DB
+// 	printf("\n");
+// #endif
 
-	txn->txn->exec_prepared("insert_arrays", frequency_map_indices);
+// 	txn->txn->exec_prepared("insert_arrays", frequency_map_indices);
 
-	return frequency_map_indices;
-}
+// 	return frequency_map_indices;
+// }
 
 void rowToJob(const pqxx::row* p_row, job::Job& j)
 {
@@ -367,6 +391,16 @@ int64_t getUnfinishedJobCountSlow(Txn* txn) {
 	return res[0]["count"].as<int64_t>();
 }
 
+void Database::printJobsStats()
+{
+	Txn txn(impl);
+	int64_t total_jobs = getJobCountSlow(&txn);
+	int64_t unfinished_jobs = getUnfinishedJobCountSlow(&txn);
+	cout << "Jobs stats: total_jobs=" << total_jobs
+		 << ", unfinished_jobs=" << unfinished_jobs << endl;
+	txn.commit();
+}
+
 int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 {
 	if (length <= 0) {
@@ -378,17 +412,33 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		getUnfinishedJobCountSlow(txn)
 	);
 
+	// std::string query =
+	// 	std::string("SELECT "
+	// 		"job_id, "
+	// 		"parent_job_id, "
+	// 		"frequency_map, "
+	// 		"start, "
+	// 		//"parent_frequency_map_index, "
+	// 		"finished "
+	// 	"FROM job "
+	// 	"WHERE finished = false "
+	// 	"LIMIT ") + std::to_string(length);
+
 	std::string query =
-		std::string("SELECT "
-			"job_id, "
-			"parent_job_id, "
-			"frequency_map, "
-			"start, "
-			//"parent_frequency_map_index, "
-			"finished "
-		"FROM job "
-		"WHERE finished = false "
-		"LIMIT ") + std::to_string(length);
+	std::string(
+		"WITH selected AS ( "
+		"    SELECT job_id, parent_job_id, frequency_map, start, finished "
+		"    FROM job "
+		"    WHERE finished = false "
+		"    LIMIT " + std::to_string(length) + " "
+		") "
+		"UPDATE job "
+		"SET finished = true "
+		"FROM selected "
+		"WHERE job.job_id = selected.job_id "
+		"RETURNING selected.job_id, selected.parent_job_id, selected.frequency_map, selected.start, selected.finished"
+	);
+
 #ifdef TEST_DB
 	cout << "Executing query: " << query << endl;
 #endif
