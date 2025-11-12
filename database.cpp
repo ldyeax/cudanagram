@@ -300,8 +300,8 @@ void Database::printFoundSentence(
 	Txn* txn
 )
 {
-	cout << start << endl;
-	indices->push_back(start);
+	//cout << start << endl;
+
 	if (parent_id != 0) {
 		pqxx::result res = txn->txn->exec(
 			"SELECT parent_job_id, start FROM job WHERE job_id = " + std::to_string(parent_id)
@@ -320,6 +320,7 @@ void Database::printFoundSentence(
 		);
 	}
 	else {
+		indices->push_back(start);
 		// Reached the root, print the sentence
 		dict->printSentence(indices);
 	}
