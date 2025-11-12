@@ -51,7 +51,7 @@ namespace worker_GPU {
 		tmp_job.parent_job_id = d_job->job_id;
 #ifdef DTEST_WORKER_GPU
 		printf("kernel: processing job %ld on index %ld\n", d_job->job_id, index);
-		d_job->print();
+		d_job->d_print();
 		printf("tmp_job.parent_job_id = %ld\n", tmp_job.parent_job_id);
 #endif
 		FrequencyMapIndex_t start = d_job->start;
@@ -170,7 +170,7 @@ public:
 				for (int64_t j = 0; j < num_new_jobs_i; j++) {
 					last_result.new_jobs.push_back(*tmp);
 					#if DTEST_WORKER_GPU
-					tmp->d_print();
+					tmp->print();
 					#endif
 					tmp++;
 				}
