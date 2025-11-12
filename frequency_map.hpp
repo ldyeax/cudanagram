@@ -33,6 +33,14 @@ namespace frequency_map {
 			}
 			fprintf(stderr, "\n");
 		}
+
+		__device__ void d_print()
+		{
+			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
+				printf("%c=%d ", i+'A', frequencies[i]);
+			}
+			printf("\n");
+		}
 	};
 	enum Result {
 		no_match = 0,

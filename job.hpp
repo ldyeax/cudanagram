@@ -38,5 +38,12 @@ namespace job {
 			//fprintf(stderr, " start=%d parent_frequency_map_index=%d finished=%d\n", start, parent_frequency_map_index, finished);
 			fprintf(stderr, " start=%d finished=%d\n", start, finished);
 		}
+
+		__device__ void d_print()
+		{
+			printf("Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
+			frequency_map.d_print();
+			printf(" start=%d finished=%d\n", start, finished);
+		}
 	};
 }
