@@ -75,17 +75,32 @@ namespace worker_GPU {
 				i,
 				&tmp_job.frequency_map
 			);
+#ifdef TEST_WORKER_GPU
+			if (index == 0) {
+				printf("\n===\n");
+				printf("compared frequency maps and got result: \n");
+				printf(" "); d_job->frequency_map.d_print();
+				printf("-"); dict->getFrequencyMapPointer(i)->d_print();
+				printf("="); tmp_job.frequency_map.d_print();
+				printf("\n===\n");
+			}
+#endif
 			if (result == NO_MATCH) {
-#if TEST_WORKER_GPU
+#ifdef TEST_WORKER_GPU
 				if (index == 0) printf("kernel: job %ld: frequency map %d: no match, skipping\n", d_job->job_id, i);
 #endif
 				continue;
 			}
 			else if (result == COMPLETE_MATCH) {
-#if TEST_WORKER_GPU
+#ifdef TEST_WORKER_GPU
 				if (index == 0) printf("kernel: job %ld: frequency map %d: complete match\n", d_job->job_id, i);
 #endif
 				tmp_job.is_sentence = true;
+			}
+			else {
+#ifdef TEST_WORKER_GPU
+				if (index == 0) printf("kernel: job %ld: frequency map %d: incomplete match\n", d_job->job_id, i);
+#endif
 			}
 			tmp_job.start = i;
 			d_new_jobs[num_new_jobs++] = tmp_job;
