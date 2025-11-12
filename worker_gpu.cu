@@ -47,6 +47,11 @@ namespace worker_GPU {
 			return;
 		}
 		d_job += index;
+		if (d_job->job_id < 100) {
+			printf("invalid job passed to kernel with block,thread %d,%d index=%ld\n", blockIdx.x, threadIdx.x, index);
+			d_job->d_print();
+			return;
+		}
 		job::Job tmp_job = {};
 		tmp_job.parent_job_id = d_job->job_id;
 #ifdef TEST_WORKER_GPU
@@ -161,6 +166,9 @@ public:
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
+				if (num_new_jobs_i == 0) {
+					continue;
+				}
 				#ifdef TEST_WORKER_GPU
 				fprintf(stderr, "Worker_GPU::doJob: job %ld produced %ld new jobs\n", i, num_new_jobs_i);
 				// read line to pause

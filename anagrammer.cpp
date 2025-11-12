@@ -197,7 +197,9 @@ void Anagrammer::run()
 #endif
 				int64_t max_jobs_to_take = num_unfinished_jobs - taken_jobs;
 				if (max_jobs_to_take <= 0) {
-					//fprintf(stderr, " All jobs taken\n");
+#ifdef TEST_ANAGRAMMER
+					fprintf(stderr, " All jobs taken\n");
+#endif
 					break;
 				}
 				taken_jobs += workers[i]->takeJobs(
