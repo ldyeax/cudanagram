@@ -1,4 +1,5 @@
 external/**
+cudanagram
 trace
 database_test
 dictionary_test

@@ -169,8 +169,10 @@ public:
 				jobs_done += num_input_jobs;
 			}
         }
-        void loop () override
+        void loop() override
         {
+			Database thread_db = Database(db);
+
 			max_input_jobs_per_iteration = numThreads();
 			max_new_jobs_per_job = dict->frequency_maps_length;
 
@@ -211,8 +213,12 @@ public:
 
             while (true) {
                 if (ready_to_start) {
+					ready_to_start = false;
                     doJobs();
-                    ready_to_start = false;
+
+					auto txn = thread_db.beginTransaction();
+					WriteResult(&last_result, dict, txn);
+					thread_db.commitTransaction(txn);
 					finished = true;
                 }
                 else {
