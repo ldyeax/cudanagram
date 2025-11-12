@@ -53,8 +53,6 @@ namespace worker_GPU {
 			return;
 		}
 		job::Job tmp_job = {};
-		tmp_job.is_sentence = false;
-		tmp_job.finished = false;
 		tmp_job.parent_job_id = d_job->job_id;
 #ifdef TEST_WORKER_GPU
 		if (index == 0) {
@@ -72,6 +70,8 @@ namespace worker_GPU {
 		d_new_jobs += index * end;
 		int32_t num_new_jobs = 0;
 		for (FrequencyMapIndex_t i = start; i < end; i++) {
+			tmp_job.is_sentence = false;
+			tmp_job.finished = false;
 			frequency_map::Result result = dict->d_compareFrequencyMaps_pip(
 				&d_job->frequency_map,
 				i,
