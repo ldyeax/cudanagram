@@ -18,7 +18,7 @@ void Worker::loop()
 	while (true) {
 		while (!ready_to_start) {
 			//std::this_thread::yield();
-			std::this_thread::sleep_for(std::chrono::microseconds(250000));
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
 		}
 		ready_to_start = false;
 		finished = false;

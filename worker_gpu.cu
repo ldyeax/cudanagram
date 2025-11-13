@@ -156,6 +156,7 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: launching kernel with %d blocks of %d threads\n", blocks.x, threads.x);
 			#endif
+			fprintf(stderr, "Worker_GPU::doJob: launching kernel with %d blocks of %d threads\n", blocks.x, threads.x);
 			kernel<<<blocks, threads>>>(
 				d_input_jobs,
 				d_dict,
@@ -164,7 +165,9 @@ public:
 				p_count
 			);
 			gpuErrChk(cudaDeviceSynchronize());
+			fprintf(stderr, "Worker_GPU::doJob: kernel finished on device %d\n", device_id);
 			// copy number of new jobs back to host
+			fprintf(stderr, "Worker_GPU::doJob: copying results back to host from device %d ..\n", device_id);
 			gpuErrChk(cudaMemcpy(
 				h_num_new_jobs,
 				d_num_new_jobs,
@@ -177,6 +180,7 @@ public:
 				sizeof(Job) * max_new_jobs_per_job * p_count,
 				cudaMemcpyDeviceToHost
 			));
+			fprintf(stderr, "Worker_GPU::doJob: copied results back to host from device %d\n", device_id);
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
@@ -199,6 +203,7 @@ public:
 					tmp++;
 				}
 			}
+			fprintf(stderr, "Worker_GPU::doJob: total new jobs produced: %ld\n", num_total_new_jobs);
 		}
 
 		void doJobs()
@@ -220,6 +225,8 @@ public:
 				for (int64_t i = 0; i < num_input_jobs; i++) {
 					h_input_jobs[i] = *(h_unfinished_jobs[jobs_start + i]);
 				}
+				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end - 1 << " ("
+					 << num_input_jobs << " jobs).." << endl;
 				// copy input jobs to device
 				gpuErrChk(cudaMemcpy(
 					d_input_jobs,
@@ -227,11 +234,13 @@ public:
 					sizeof(Job) * num_input_jobs,
 					cudaMemcpyHostToDevice
 				));
+				cerr << "Copied input jobs to device " << device_id << endl;
 				// process each job
 				doJob(
 					d_input_jobs,
 					num_input_jobs
 				);
+				cerr << "finished doJob on device " << device_id << endl;
 				jobs_done += num_input_jobs;
 			}
         }
@@ -323,7 +332,7 @@ public:
                 }
                 else {
                     //std::this_thread::yield();
-					std::this_thread::sleep_for(std::chrono::microseconds(250000));
+					std::this_thread::sleep_for(std::chrono::microseconds(100));
                 }
             }
         }
