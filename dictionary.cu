@@ -202,8 +202,6 @@ __device__ frequency_map::Result dictionary::Dictionary::d_compareFrequencyMaps_
 	}
 	return ret;
 }
-#else
-compilation error
 #endif
 
 __host__ frequency_map::Result dictionary::Dictionary::h_compareFrequencyMaps_pip(
