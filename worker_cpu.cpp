@@ -38,8 +38,11 @@ public:
 		if (max_length <= 0) {
 			throw;
 		}
-		unfinished_jobs.push_back(buffer);
-		return 1;
+		int64_t jobs_to_take = std::min((int64_t)numThreads(), max_length);
+		for (int64_t i = 0; i < jobs_to_take; i++) {
+			unfinished_jobs.push_back(buffer + i);
+		}
+		return jobs_to_take;
 	}
 
 
@@ -51,7 +54,7 @@ public:
 
 	int32_t numThreads() override
 	{
-		return 1;
+		return 5;  // CPU cores are ~4-5x faster than CUDA cores at sequential work
 	}
 
 	void doJob(job::Job* p_input, int64_t p_count) override
@@ -105,6 +108,16 @@ public:
 			std::cerr << "The number of CPU threads could not be determined or is zero." << std::endl;
 			concurrent_threads = 16;
 		}
+		if (concurrent_threads <= 16) {
+			concurrent_threads--;
+		}
+		else if (concurrent_threads <= 32) {
+			concurrent_threads -= 2;
+		}
+		else {
+			concurrent_threads -= 4;
+		}
+		std::cerr << "Spawning up to " << concurrent_threads << " CPU workers." << std::endl;
         int64_t count = 0;
         for (int64_t i = 0; i < max && i < concurrent_threads; i++) {
             buffer[i] = new Worker_CPU(db, dict, i);

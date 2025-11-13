@@ -11,7 +11,7 @@
 #include <thread>
 
 #ifndef WORKER_GPU_BLOCKS
-#define WORKER_GPU_BLOCKS 256
+#define WORKER_GPU_BLOCKS 128
 #endif
 
 #ifndef WORKER_GPU_THREADS_PER_BLOCK
