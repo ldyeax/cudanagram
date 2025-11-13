@@ -338,6 +338,7 @@ public:
 					device_id, funcAttrib.numRegs, funcAttrib.sharedSizeBytes,
 					funcAttrib.localSizeBytes, funcAttrib.constSizeBytes);
 			//#endif
+			max_input_jobs_per_iteration = numThreads();
 
 /*
             gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
@@ -365,6 +366,7 @@ public:
 				sizeof(Job) * max_input_jobs_per_iteration +
 				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration +
 				sizeof(int64_t) * max_input_jobs_per_iteration;
+
 
 			fprintf(stderr,
 				"Device %d required resources for kernel: stack=%ld bytes, heap=%ld bytes, device memory=%ld bytes\n",
