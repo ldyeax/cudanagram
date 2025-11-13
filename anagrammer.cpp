@@ -243,6 +243,7 @@ void Anagrammer::run()
 			bool tmp_all_cpu_finished = true;
 			bool tmp_all_gpu_finished = num_cpu_workers < num_workers;
 			for (int64_t i = 0; i < num_workers; i++) {
+				cerr << i << "=" << workers[i]->finished.load() << " ";
 				if (!workers[i]->finished.load()) {
 					if (i < num_cpu_workers) {
 						tmp_all_cpu_finished = false;
@@ -252,6 +253,7 @@ void Anagrammer::run()
 					}
 				}
 			}
+			cerr << endl;
 			if (tmp_all_cpu_finished && !all_cpu_finished) {
 				cerr << "Finished all CPU workers" << endl;
 				all_cpu_finished = true;
