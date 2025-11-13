@@ -365,6 +365,9 @@ public:
 						+ sizeof(int64_t)
 						+ kernel_stack_size
 					);
+			cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration << " based on free memory of "
+				 << freeMem << " bytes on device " << device_id << endl;
+
 			//#endif
 			worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
 			// round max_input_jobs_per_iteration to the nearest multiple of worker_gpu_threads_per_block
@@ -375,6 +378,11 @@ public:
 				= max_input_jobs_per_iteration
 					/ worker_gpu_threads_per_block;
 
+			cerr << "Setting stack size to kernel_stack_size * deviceProp.maxThreadsPerBlock * worker_gpu_blocks = "
+				 << kernel_stack_size << " * " << deviceProp.maxThreadsPerBlock
+				 << " * " << worker_gpu_blocks << " = "
+				 << (kernel_stack_size * deviceProp.maxThreadsPerBlock * worker_gpu_blocks)
+				 << " bytes on device " << device_id << endl;
 			gpuErrChk(cudaDeviceSetLimit(
 				cudaLimitStackSize,
 				kernel_stack_size * deviceProp.maxThreadsPerBlock * worker_gpu_blocks
