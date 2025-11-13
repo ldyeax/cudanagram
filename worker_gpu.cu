@@ -248,8 +248,11 @@ public:
 			max_input_jobs_per_iteration = numThreads();
 			max_new_jobs_per_job = dict->frequency_maps_length;
 
+			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
 			h_input_jobs = new Job[max_input_jobs_per_iteration];
+			cerr << "Allocating " << max_new_jobs_per_job * max_input_jobs_per_iteration << " new jobs on host for device " << device_id << endl;
 			h_new_jobs_tmp = new Job[max_new_jobs_per_job * max_input_jobs_per_iteration];
+			cerr << "Allocating " << max_input_jobs_per_iteration << " num_new_jobs on host for device " << device_id << endl;
 			h_num_new_jobs = new int64_t[max_input_jobs_per_iteration];
 
             gpuErrChk(cudaSetDevice(device_id));
