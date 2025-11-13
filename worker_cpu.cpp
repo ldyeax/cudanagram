@@ -54,7 +54,7 @@ public:
 
 	int32_t numThreads() override
 	{
-		return 1024;  // CPU cores are ~4-5x faster than CUDA cores at sequential work
+		return 16;  // CPU cores are ~4-5x faster than CUDA cores at sequential work
 	}
 
 	void doJob(job::Job* p_input, int64_t p_count) override
