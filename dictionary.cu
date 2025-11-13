@@ -24,6 +24,7 @@ void dictionary::Dictionary::printStats()
 	cerr << "Initial words parsed: " << stats.initial_words_parsed << endl;
 	cerr << "Initial words removed: " << stats.initial_words_removed << endl;
 	cerr << "Frequency map rejections: " << stats.frequency_map_rejections << endl;
+	cerr << "Frequency maps length: " << frequency_maps_length << endl;
 }
 
 FrequencyMapIndex_t dictionary::Dictionary::getOrCreateFrequencyMapIndexByWordIndex(
