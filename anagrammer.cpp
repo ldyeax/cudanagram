@@ -245,6 +245,7 @@ void Anagrammer::run()
 		while (!all_finished) {
 			bool tmp_all_cpu_finished = true;
 			bool tmp_all_gpu_finished = workers_assigned <= num_cpu_workers;
+			bool any_unfinished = false;
 			for (int64_t i = 0; i < workers_assigned; i++) {
 				if (i < 4 || i >= num_cpu_workers) cerr << i << "=" << workers[i]->finished.load() << " ";
 				if (!workers[i]->finished.load()) {
@@ -254,6 +255,11 @@ void Anagrammer::run()
 					else {
 						tmp_all_gpu_finished = false;
 					}
+					any_unfinished = true;
+				} else if (i + 1 == workers_assigned && !any_unfinished) {
+					all_finished = true;
+					cerr << "Finished all workers" << endl;
+					goto exit_all_finished_loop;
 				}
 			}
 			cerr << endl;
@@ -268,6 +274,7 @@ void Anagrammer::run()
 			all_finished = all_cpu_finished && all_gpu_finished;
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		}
+	exit_all_finished_loop:
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 		fprintf(stderr, " Jobs/second processed+write: %.2f\n", (num_unfinished_jobs / (duration / 1000.0)));
