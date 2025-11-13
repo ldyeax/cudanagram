@@ -13,3 +13,7 @@ perf.*
 *.ptx
 *.cubin
 *.fatbin
+*.db
+*.db-wal
+*.db-shm
+*.log

@@ -4,7 +4,7 @@ PQXX_LIB    := $(PQXX_PREFIX)/lib
 
 GPP = g++
 GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations
-GPP_LDFLAGS = -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq -lncurses -ltinfo
+GPP_LDFLAGS = -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq -lncurses -ltinfo -lsqlite3
 
 TEST_DICTIONARY = dictionary_test
 TEST_DICTIONARY_O = dictionary_test.o
@@ -19,7 +19,7 @@ DB_O = database.o
 
 NVCC = nvcc
 NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math
-LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx
+LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx -lsqlite3
 
 TARGET = cudanagram
 SRC = cudanagram.cu
@@ -55,11 +55,16 @@ ifdef CUDANAGRAM_PSQL
 	GPP_FLAGS  += -DCUDANAGRAM_PSQL
 	NVCC_CFLAGS += -DCUDANAGRAM_PSQL
 endif
+ifdef CUDANAGRAM_SQLITE
+	GPP_FLAGS  += -DCUDANAGRAM_SQLITE
+	NVCC_CFLAGS += -DCUDANAGRAM_SQLITE
+endif
 
 ifdef CUDANAGRAM_THREADS_PER_CPU_WORKER
 	GPP_FLAGS  += -DCUDANAGRAM_THREADS_PER_CPU_WORKER=$(CUDANAGRAM_THREADS_PER_CPU_WORKER)
 	NVCC_CFLAGS += -DCUDANAGRAM_THREADS_PER_CPU_WORKER=$(CUDANAGRAM_THREADS_PER_CPU_WORKER)
 endif
+
 
 all: $(TARGET)
 
