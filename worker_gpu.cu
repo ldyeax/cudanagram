@@ -13,6 +13,8 @@
 using namespace worker;
 
 using job::Job;
+using std::cerr;
+using std::endl;
 
 namespace worker_GPU {
 	__global__ void kernel(
@@ -246,32 +248,38 @@ public:
 
             gpuErrChk(cudaSetDevice(device_id));
             gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
+			cerr << "Allocated d_dict on device " << device_id << endl;
             gpuErrChk(cudaMemcpy(
                 d_dict,
                 dict,
                 sizeof(Dictionary),
                 cudaMemcpyHostToDevice
             ));
+			cerr << "Copied Dictionary to device " << device_id << endl;
 
 			gpuErrChk(cudaMalloc(
 				&d_input_jobs,
 				sizeof(Job) * max_input_jobs_per_iteration
 			));
+			cerr << "Allocated d_input_jobs on device " << device_id << endl;
 
 			gpuErrChk(cudaMalloc(
 				&d_new_jobs,
 				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 			));
+			cerr << "Allocated d_new_jobs on device " << device_id << endl;
 
 			gpuErrChk(cudaMalloc(
 				&d_num_new_jobs,
 				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
+			cerr << "Allocated d_num_new_jobs on device " << device_id << endl;
 			gpuErrChk(cudaMemset(
 				d_num_new_jobs,
 				0,
 				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
+			cerr << "Initialized d_num_new_jobs on device " << device_id << endl;
 
 			gpuErrChk(cudaDeviceSynchronize());
 
