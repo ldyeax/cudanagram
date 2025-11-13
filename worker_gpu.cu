@@ -378,14 +378,11 @@ public:
 				= max_input_jobs_per_iteration
 					/ worker_gpu_threads_per_block;
 
-			cerr << "Setting stack size to kernel_stack_size * deviceProp.maxThreadsPerBlock * worker_gpu_blocks = "
-				 << kernel_stack_size << " * " << deviceProp.maxThreadsPerBlock
-				 << " * " << worker_gpu_blocks << " = "
-				 << (kernel_stack_size * deviceProp.maxThreadsPerBlock * worker_gpu_blocks)
-				 << " bytes on device " << device_id << endl;
+			cerr << "Setting stack size per thread to kernel_stack_size = "
+				 << kernel_stack_size << " bytes on device " << device_id << endl;
 			gpuErrChk(cudaDeviceSetLimit(
 				cudaLimitStackSize,
-				kernel_stack_size * deviceProp.maxThreadsPerBlock * worker_gpu_blocks
+				kernel_stack_size
 			));
 			gpuErrChk(cudaDeviceSynchronize());
 
