@@ -26,6 +26,9 @@ namespace anagrammer {
     public:
 		int64_t num_jobs_per_batch;
 
+		int64_t num_gpu_workers = 0;
+		int64_t num_cpu_workers = 0;
+
         Dictionary* dict;
         Database* database;
         string input;

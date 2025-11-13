@@ -54,7 +54,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 			cerr << "Anagrammer::initWorkers: CPU factory is null" << endl;
 			throw;
 		}
-		int64_t num_cpu_workers = cpu_factory->Spawn(
+		num_cpu_workers = cpu_factory->Spawn(
 			workers,
 			num_jobs_per_batch,
 			database,
@@ -70,7 +70,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 			cerr << "Anagrammer::initWorkers: GPU factory is null" << endl;
 			throw;
 		}
-		int64_t num_gpu_workers = gpu_factory->Spawn(
+		num_gpu_workers = gpu_factory->Spawn(
 			workers + num_workers,
 			num_jobs_per_batch - num_workers,
 			database,
@@ -166,11 +166,15 @@ void Anagrammer::run()
 
 		database->printJobsStats();
 
+		cerr << "Getting unfinished jobs .." << endl;
+
 		database::Txn* txn = database->beginTransaction();
 		int64_t num_unfinished_jobs
 			= database->getUnfinishedJobs(num_jobs_per_batch, unfinished_jobs, txn);
 		database->commitTransaction(txn);
 		database->printJobsStats();
+
+		cerr << "Got unfinished jobs from database" << endl;
 
 		if (num_unfinished_jobs <= 0) {
 			cerr << "No unfinished jobs remaining, done." << endl;
@@ -181,6 +185,8 @@ void Anagrammer::run()
 		for (int64_t i = 0; i < num_workers; i++) {
 			workers[i]->reset();
 		}
+
+		cerr << "Reset all workers" << endl;
 
 		int64_t taken_jobs = 0;
 		// If there are 16 workers and 1024 jobs, each worker gets 1024/16 jobs
@@ -230,10 +236,31 @@ void Anagrammer::run()
 		}
 		//fprintf(stderr, " Started worker %d\n", i);
 		// wait for all workers to finish
-		for (int64_t i = 0; i < workers_assigned; i++) {
-			while (!workers[i]->finished.load()) {
-				usleep(100);
+		bool all_finished = false;
+		bool all_cpu_finished = false;
+		bool all_gpu_finished = false;
+		while (!all_finished) {
+			bool tmp_all_cpu_finished = true;
+			bool tmp_all_gpu_finished = num_cpu_workers < num_workers;
+			for (int64_t i = 0; i < num_workers; i++) {
+				if (!workers[i]->finished.load()) {
+					if (i < num_cpu_workers) {
+						tmp_all_cpu_finished = false;
+					}
+					else {
+						tmp_all_gpu_finished = false;
+					}
+				}
 			}
+			if (tmp_all_cpu_finished && !all_cpu_finished) {
+				cerr << "Finished all CPU workers" << endl;
+				all_cpu_finished = true;
+			}
+			if (tmp_all_gpu_finished && !all_gpu_finished) {
+				cerr << "Finished all GPU workers" << endl;
+				all_gpu_finished = true;
+			}
+			all_finished = all_cpu_finished && all_gpu_finished;
 		}
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();

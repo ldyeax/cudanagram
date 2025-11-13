@@ -422,6 +422,7 @@ public:
 #ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::takeJobs: taking %ld jobs on device %d\n", to_take, device_id);
 #endif
+			fprintf(stderr, "Worker_GPU::takeJobs: taking %ld jobs on device %d\n", to_take, device_id);
             for (int64_t i = 0; i < to_take; i++) {
 				h_unfinished_jobs.push_back(buffer++);
 			}
