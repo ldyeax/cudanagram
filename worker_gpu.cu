@@ -265,12 +265,12 @@ public:
 
 			gpuErrChk(cudaMalloc(
 				&d_num_new_jobs,
-				sizeof(int32_t)* max_new_jobs_per_job * max_input_jobs_per_iteration
+				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
 			gpuErrChk(cudaMemset(
 				d_num_new_jobs,
 				0,
-				sizeof(int32_t)
+				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
 
 			gpuErrChk(cudaDeviceSynchronize());
@@ -396,6 +396,17 @@ public:
 				freeMem,
 				totalMem
 			);
+
+			// Set stack size limit if needed
+			if (required_stack_size > stackSize) {
+				fprintf(stderr,
+					"Device %d: increasing stack size from %zu to %ld bytes\n",
+					device_id,
+					stackSize,
+					required_stack_size
+				);
+				gpuErrChk(cudaDeviceSetLimit(cudaLimitStackSize, required_stack_size));
+			}
 		}
 
         Worker_GPU(
