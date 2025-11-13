@@ -271,26 +271,28 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 // }
 
 void Database::finishJobs(job::Job* jobs, int64_t length) {
-	Txn txn(impl);
-	finishJobs(jobs, length, &txn);
-	txn.commit();
+	// stub for psql
+	// Txn txn(impl);
+	// finishJobs(jobs, length, &txn);
+	// txn.commit();
 }
 
 void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
-    if (length <= 0)
-	{
-		throw;
-	}
+	// stub for psql
+    // if (length <= 0)
+	// {
+	// 	throw;
+	// }
 
-    std::vector<JobID_t> ids;
-    ids.reserve(length);
-    for (int64_t i = 0; i < length; ++i) ids.push_back(jobs[i].job_id);
+    // std::vector<JobID_t> ids;
+    // ids.reserve(length);
+    // for (int64_t i = 0; i < length; ++i) ids.push_back(jobs[i].job_id);
 
-    txn->txn->exec_params(
-        "UPDATE job SET finished = TRUE "
-        "WHERE job_id = ANY($1::BIGINT[])",
-        ids
-    );
+    // txn->txn->exec_params(
+    //     "UPDATE job SET finished = TRUE "
+    //     "WHERE job_id = ANY($1::BIGINT[])",
+    //     ids
+    // );
 }
 
 
