@@ -301,12 +301,12 @@ public:
 
 		void setLimits()
 		{
+			// No allocations needed
+			gpuErrChk(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 0));
 
 			// Get our device info based on device id
 			cudaDeviceProp deviceProp;
-			cudaGetDeviceProperties(&deviceProp, device_id);
-			worker_gpu_blocks = deviceProp.multiProcessorCount * 2;
-			worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
+			gpuErrChk(cudaGetDeviceProperties(&deviceProp, device_id));
 
 			// Based on our allocations and device info,
 			//  set number of blocks and threads to utilize the GPU fully with the kernel's stack footprint in mind
@@ -315,27 +315,85 @@ public:
 			// Query kernel resource usage
 			cudaFuncAttributes funcAttrib;
 			gpuErrChk(cudaFuncGetAttributes(&funcAttrib, kernel));
-
-			// Find optimal block size for maximum occupancy
-			int minGridSize, optimalBlockSize;
+/*
+		int32_t worker_gpu_blocks = -1;
+		int32_t worker_gpu_threads_per_block = -1;
+*/
 			gpuErrChk(cudaOccupancyMaxPotentialBlockSize(
-				&minGridSize,
-				&optimalBlockSize,
+				&worker_gpu_blocks,
+				&worker_gpu_threads_per_block,
 				kernel,
 				0,  // dynamic shared memory
 				0   // max block size (0 = device default)
 			));
 
-
-
 			//#ifdef TEST_WORKER_GPU
+			fprintf(stderr,
+				"Device %d initial optimal dimensions: blocks=%d, threads_per_block=%d\n",
+				device_id,
+				worker_gpu_blocks,
+				worker_gpu_threads_per_block
+			);
 			fprintf(stderr, "Device %d Kernel config: registers=%d, shared=%zu, local=%zu, const=%zu\n",
 					device_id, funcAttrib.numRegs, funcAttrib.sharedSizeBytes,
 					funcAttrib.localSizeBytes, funcAttrib.constSizeBytes);
-			fprintf(stderr, "Device %d Occupancy: optimal_block_size=%d, blocks=%d, threads_per_block=%d\n",
-					device_id, optimalBlockSize, worker_gpu_blocks, worker_gpu_threads_per_block);
 			//#endif
 
+/*
+            gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
+
+			gpuErrChk(cudaMalloc(
+				&d_input_jobs,
+				sizeof(Job) * max_input_jobs_per_iteration
+			));
+
+			gpuErrChk(cudaMalloc(
+				&d_new_jobs,
+				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
+			));
+
+			gpuErrChk(cudaMalloc(
+				&d_num_new_jobs,
+				sizeof(int32_t)* max_new_jobs_per_job * max_input_jobs_per_iteration
+			));
+*/
+
+			int64_t required_stack_size = funcAttrib.localSizeBytes * worker_gpu_threads_per_block;
+			int64_t required_heap_size = 0; // our kernel does not use malloc
+			int64_t required_device_memory =
+				sizeof(Dictionary) +
+				sizeof(Job) * max_input_jobs_per_iteration +
+				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration +
+				sizeof(int64_t) * max_input_jobs_per_iteration;
+
+			fprintf(stderr,
+				"Device %d required resources for kernel: stack=%ld bytes, heap=%ld bytes, device memory=%ld bytes\n",
+				device_id,
+				required_stack_size,
+				required_heap_size,
+				required_device_memory
+			);
+
+			// Query current limits
+			size_t stackSize, heapSize;
+			gpuErrChk(cudaDeviceGetLimit(&stackSize, cudaLimitStackSize));
+			gpuErrChk(cudaDeviceGetLimit(&heapSize, cudaLimitMallocHeapSize));
+			fprintf(stderr,
+				"Device %d current limits: stack=%zu bytes, heap=%zu bytes\n",
+				device_id,
+				stackSize,
+				heapSize
+			);
+
+			// print device total memory
+			size_t freeMem, totalMem;
+			gpuErrChk(cudaMemGetInfo(&freeMem, &totalMem));
+			fprintf(stderr,
+				"Device %d memory: free=%zu bytes, total=%zu bytes\n",
+				device_id,
+				freeMem,
+				totalMem
+			);
 		}
 
         Worker_GPU(
