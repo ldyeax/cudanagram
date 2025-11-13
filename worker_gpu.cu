@@ -167,20 +167,20 @@ public:
 			gpuErrChk(cudaDeviceSynchronize());
 			fprintf(stderr, "Worker_GPU::doJob: kernel finished on device %d\n", device_id);
 			// copy number of new jobs back to host
-			fprintf(stderr, "Worker_GPU::doJob: copying results back to host from device %d ..\n", device_id);
+			fprintf(stderr, "Worker_GPU::doJob: copying results numbers list back to host from device %d ..\n", device_id);
 			gpuErrChk(cudaMemcpy(
 				h_num_new_jobs,
 				d_num_new_jobs,
 				sizeof(int64_t) * p_count,
 				cudaMemcpyDeviceToHost
 			));
-			gpuErrChk(cudaMemcpy(
-				h_new_jobs_tmp,
-				d_new_jobs,
-				sizeof(Job) * max_new_jobs_per_job * p_count,
-				cudaMemcpyDeviceToHost
-			));
-			fprintf(stderr, "Worker_GPU::doJob: copied results back to host from device %d\n", device_id);
+			// gpuErrChk(cudaMemcpy(
+			// 	h_new_jobs_tmp,
+			// 	d_new_jobs,
+			// 	sizeof(Job) * max_new_jobs_per_job * p_count,
+			// 	cudaMemcpyDeviceToHost
+			// ));
+			fprintf(stderr, "Worker_GPU::doJob: copied results numbers list back to host from device %d\n", device_id);
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
@@ -195,6 +195,12 @@ public:
 				#endif
 				num_total_new_jobs += num_new_jobs_i;
 				Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
+				gpuErrChk(cudaMemcpy(
+					tmp,
+					d_new_jobs + (i * max_new_jobs_per_job),
+					sizeof(Job) * num_new_jobs_i,
+					cudaMemcpyDeviceToHost
+				));
 				for (int64_t j = 0; j < num_new_jobs_i; j++) {
 					last_result.new_jobs.push_back(*tmp);
 					#if TEST_WORKER_GPU
