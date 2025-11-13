@@ -17,6 +17,7 @@
 #include <cstdio>
 
 #include <unordered_map>
+#include <mutex>
 
 using std::cout;
 using std::endl;
@@ -47,7 +48,7 @@ static std::atomic<int64_t> max_id{100};
 struct database::Impl {
 	string database_name;
 	std::unordered_map<JobID_t, job::Job> jobs_map;
-
+	std::mutex map_mutex;
 };
 struct database::Txn {
 	Txn(Impl* impl) {
@@ -156,15 +157,16 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 	if (length <= 0) {
 		throw;
 	}
-	{
-		for (int64_t i = 0; i < length; i++) {
-			Job& j = jobs[i];
-			if (j.job_id == 0) {
-				j.job_id = max_id.fetch_add(1);
-			}
-			impl->jobs_map[j.job_id] = j;
+
+	std::lock_guard<std::mutex> lock(impl->map_mutex);
+	for (int64_t i = 0; i < length; i++) {
+		Job& j = jobs[i];
+		if (j.job_id == 0) {
+			j.job_id = max_id.fetch_add(1);
 		}
+		impl->jobs_map[j.job_id] = j;
 	}
+
 }
 
 
@@ -180,11 +182,17 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
 		throw;
 	}
 
+	std::lock_guard<std::mutex> lock(impl->map_mutex);
+	cerr << "Finishing " << length << " jobs" << endl;
 	for (int64_t i = 0; i < length; ++i) {
 		JobID_t id = jobs[i].job_id;
 		auto it = impl->jobs_map.find(id);
 		if (it != impl->jobs_map.end()) {
 			it->second.finished = true;
+			cerr << "Finished job " << id << ": impl->jobs_map.find(id).second.finished = " << impl->jobs_map.find(id)->second.finished << endl;
+		}
+		else {
+			throw;
 		}
 	}
 }
@@ -299,6 +307,8 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		if (!pair.second.finished) {
 			if (count < length) {
 				buffer[count] = pair.second;
+				// mark as finished immediately
+				impl->jobs_map[pair.first].finished = true;
 			}
 			else {
 				return count;

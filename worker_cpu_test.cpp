@@ -42,6 +42,7 @@ int main(int argc, char* argv[])
 	);
 	a.initWorkers(true, false);
 	a.run();
+	a.printFoundSentences();
 
 	return 0;
 }
