@@ -332,7 +332,9 @@ public:
 		void setLimits()
 		{
 			// No allocations needed
+			cerr << "Setting malloc heap size to 0 on device " << device_id << endl;
 			gpuErrChk(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 0));
+			gpuErrChk(cudaDeviceSynchronize());
 
 			// Get our device info based on device id
 			cudaDeviceProp deviceProp;
