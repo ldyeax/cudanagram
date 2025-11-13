@@ -278,6 +278,8 @@ void Anagrammer::run()
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 		fprintf(stderr, " Jobs/second processed+write: %.2f\n", (num_unfinished_jobs / (duration / 1000.0)));
+		database->finishJobs(unfinished_jobs, num_unfinished_jobs);
+		fprintf(stderr, "Finished iteration %ld\n", iteration);
 	}
 }
 

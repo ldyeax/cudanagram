@@ -43,6 +43,7 @@ using std::shared_ptr;
 using std::make_shared;
 
 #include <atomic>
+#include <thread>
 static std::atomic<int64_t> max_id{100};
 
 struct database::Impl {
@@ -65,9 +66,39 @@ std::string Database::getNewDatabaseName()
 	return "cudanagram_" + current_unix_timestamp;
 }
 
+void sweepThread(Impl* impl)
+{
+	//auto file_handle = fopen("sweep_log.txt", "a");
+	// remove job if it's finished and has no children
+	while (true) {
+		for (auto it = impl->jobs_map.begin(); it != impl->jobs_map.end(); ) {
+			const Job& job = it->second;
+			if (job.finished) {
+				// Check if any job has this job as parent
+				bool has_children = false;
+				for (const auto& pair : impl->jobs_map) {
+					if (pair.second.parent_job_id == job.job_id) {
+						has_children = true;
+						break;
+					}
+				}
+				if (!has_children) {
+					// Remove job
+					it = impl->jobs_map.erase(it);
+					continue;
+				}
+			}
+			++it;
+		}
+	}
+}
+
 void Database::init()
 {
 	impl = new Impl;
+	// Start sweep thread
+	std::thread sweeper(sweepThread, impl);
+	sweeper.detach();
 }
 
 Txn* Database::beginTransaction()
@@ -183,13 +214,13 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
 	}
 
 	std::lock_guard<std::mutex> lock(impl->map_mutex);
-	cerr << "Finishing " << length << " jobs" << endl;
+	//cerr << "Finishing " << length << " jobs" << endl;
 	for (int64_t i = 0; i < length; ++i) {
 		JobID_t id = jobs[i].job_id;
 		auto it = impl->jobs_map.find(id);
 		if (it != impl->jobs_map.end()) {
 			it->second.finished = true;
-			cerr << "Finished job " << id << ": impl->jobs_map.find(id).second.finished = " << impl->jobs_map.find(id)->second.finished << endl;
+			//cerr << "Finished job " << id << ": impl->jobs_map.find(id).second.finished = " << impl->jobs_map.find(id)->second.finished << endl;
 		}
 		else {
 			throw;
@@ -308,7 +339,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 			if (count < length) {
 				buffer[count] = pair.second;
 				// mark as finished immediately
-				impl->jobs_map[pair.first].finished = true;
+				// impl->jobs_map[pair.first].finished = true;
 			}
 			else {
 				return count;
