@@ -245,9 +245,6 @@ public:
         {
 			Database thread_db = Database(db);
 
-			max_input_jobs_per_iteration = numThreads();
-			max_new_jobs_per_job = dict->frequency_maps_length;
-
 			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
 			h_input_jobs = new Job[max_input_jobs_per_iteration];
 			cerr << "Allocating " << max_new_jobs_per_job * max_input_jobs_per_iteration << " new jobs on host for device " << device_id << endl;
