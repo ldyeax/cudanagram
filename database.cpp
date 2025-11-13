@@ -348,7 +348,7 @@ void Database::printFoundSentences(Dictionary* dict)
 			indices,
 			txn
 		);
-		cerr << "===" << endl;
+		// cerr << "===" << endl;
 	}
 	cerr << "Printed " << res.size() << " found sentences" << endl;
 	commitTransaction(txn);
