@@ -238,11 +238,11 @@ void Anagrammer::run()
 		// wait for all workers to finish
 		bool all_finished = false;
 		bool all_cpu_finished = false;
-		bool all_gpu_finished = false;
+		bool all_gpu_finished = num_cpu_workers < workers_assigned;
 		while (!all_finished) {
 			bool tmp_all_cpu_finished = true;
-			bool tmp_all_gpu_finished = num_cpu_workers < num_workers;
-			for (int64_t i = 0; i < num_workers; i++) {
+			bool tmp_all_gpu_finished = num_cpu_workers < workers_assigned;
+			for (int64_t i = 0; i < workers_assigned; i++) {
 				if (i < 4 || i >= num_cpu_workers) cerr << i << "=" << workers[i]->finished.load() << " ";
 				if (!workers[i]->finished.load()) {
 					if (i < num_cpu_workers) {
