@@ -260,19 +260,29 @@ public:
         {
 			Database thread_db = Database(db);
 
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
+			#endif
 			h_input_jobs = new Job[max_input_jobs_per_iteration];
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating " << max_new_jobs_per_job * max_input_jobs_per_iteration << " new jobs on host for device " << device_id << endl;
+			#endif
 			h_new_jobs_tmp = new Job[max_new_jobs_per_job * max_input_jobs_per_iteration];
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating " << max_input_jobs_per_iteration << " num_new_jobs on host for device " << device_id << endl;
+			#endif
 			h_num_new_jobs = new int64_t[max_input_jobs_per_iteration];
 
             gpuErrChk(cudaSetDevice(device_id));
 			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Dictionary)=" << sizeof(Dictionary) << " bytes on device " << device_id << endl;
+			#endif
             gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
 			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_dict on device " << device_id << endl;
+			#endif
             gpuErrChk(cudaMemcpy(
                 d_dict,
                 dict,
@@ -280,38 +290,51 @@ public:
                 cudaMemcpyHostToDevice
             ));
 			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
 			cerr << "Copied Dictionary to device " << device_id << endl;
+			#endif
 
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
 				 << sizeof(Job) * max_input_jobs_per_iteration
 				 << " bytes for d_input_jobs on device " << device_id << endl;
+			#endif
 			gpuErrChk(cudaMalloc(
 				&d_input_jobs,
 				sizeof(Job) * max_input_jobs_per_iteration
 			));
 			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_input_jobs on device " << device_id << endl;
+			#endif
 
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << (max_new_jobs_per_job * max_input_jobs_per_iteration)
 				 << "="
 				 << sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 				 << " bytes for d_new_jobs on device " << device_id << endl;
+			#endif
 			gpuErrChk(cudaMalloc(
 				&d_new_jobs,
 				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 			));
 			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_new_jobs on device " << device_id << endl;
-
+			#endif
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(int64_t)*" << max_input_jobs_per_iteration << "="
 				 << sizeof(int64_t) * max_input_jobs_per_iteration
 				 << " bytes for d_num_new_jobs on device " << device_id << endl;
+			#endif
 			gpuErrChk(cudaMalloc(
 				&d_num_new_jobs,
 				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
 			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_num_new_jobs on device " << device_id << endl;
+			#endif
 			gpuErrChk(cudaMemset(
 				d_num_new_jobs,
 				0,
