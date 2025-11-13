@@ -247,7 +247,10 @@ public:
 			h_num_new_jobs = new int64_t[max_input_jobs_per_iteration];
 
             gpuErrChk(cudaSetDevice(device_id));
+			gpuErrChk(cudaDeviceSynchronize());
+			cerr << "Allocating sizeof(Dictionary)=" << sizeof(Dictionary) << " bytes on device " << device_id << endl;
             gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
+			gpuErrChk(cudaDeviceSynchronize());
 			cerr << "Allocated d_dict on device " << device_id << endl;
             gpuErrChk(cudaMemcpy(
                 d_dict,
@@ -255,31 +258,44 @@ public:
                 sizeof(Dictionary),
                 cudaMemcpyHostToDevice
             ));
+			gpuErrChk(cudaDeviceSynchronize());
 			cerr << "Copied Dictionary to device " << device_id << endl;
 
+			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
+				 << sizeof(Job) * max_input_jobs_per_iteration
+				 << " bytes for d_input_jobs on device " << device_id << endl;
 			gpuErrChk(cudaMalloc(
 				&d_input_jobs,
 				sizeof(Job) * max_input_jobs_per_iteration
 			));
+			gpuErrChk(cudaDeviceSynchronize());
 			cerr << "Allocated d_input_jobs on device " << device_id << endl;
 
+			cerr << "Allocating sizeof(Job)*" << (max_new_jobs_per_job * max_input_jobs_per_iteration)
+				 << "="
+				 << sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
+				 << " bytes for d_new_jobs on device " << device_id << endl;
 			gpuErrChk(cudaMalloc(
 				&d_new_jobs,
 				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 			));
+			gpuErrChk(cudaDeviceSynchronize());
 			cerr << "Allocated d_new_jobs on device " << device_id << endl;
 
+			cerr << "Allocating sizeof(int64_t)*" << max_input_jobs_per_iteration << "="
+				 << sizeof(int64_t) * max_input_jobs_per_iteration
+				 << " bytes for d_num_new_jobs on device " << device_id << endl;
 			gpuErrChk(cudaMalloc(
 				&d_num_new_jobs,
 				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
+			gpuErrChk(cudaDeviceSynchronize());
 			cerr << "Allocated d_num_new_jobs on device " << device_id << endl;
 			gpuErrChk(cudaMemset(
 				d_num_new_jobs,
 				0,
 				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
-			cerr << "Initialized d_num_new_jobs on device " << device_id << endl;
 
 			gpuErrChk(cudaDeviceSynchronize());
 
