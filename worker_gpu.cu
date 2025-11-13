@@ -156,7 +156,6 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: launching kernel with %d blocks of %d threads\n", blocks.x, threads.x);
 			#endif
-			fprintf(stderr, "Worker_GPU::doJob: launching kernel with %d blocks of %d threads\n", blocks.x, threads.x);
 			kernel<<<blocks, threads>>>(
 				d_input_jobs,
 				d_dict,
@@ -165,9 +164,13 @@ public:
 				p_count
 			);
 			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: kernel finished on device %d\n", device_id);
+			#endif
 			// copy number of new jobs back to host
+			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: copying results numbers list back to host from device %d ..\n", device_id);
+			#endif
 			gpuErrChk(cudaMemcpy(
 				h_num_new_jobs,
 				d_num_new_jobs,
@@ -180,7 +183,9 @@ public:
 			// 	sizeof(Job) * max_new_jobs_per_job * p_count,
 			// 	cudaMemcpyDeviceToHost
 			// ));
+			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: copied results numbers list back to host from device %d\n", device_id);
+			#endif
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
@@ -203,13 +208,16 @@ public:
 				));
 				for (int64_t j = 0; j < num_new_jobs_i; j++) {
 					last_result.new_jobs.push_back(*tmp);
-					#if TEST_WORKER_GPU
+					#ifdef TEST_WORKER_GPU
 					tmp->print();
 					#endif
 					tmp++;
 				}
 			}
+			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: total new jobs produced: %ld\n", num_total_new_jobs);
+			// read line to pause
+			#endif
 		}
 
 		void doJobs()
@@ -231,8 +239,10 @@ public:
 				for (int64_t i = 0; i < num_input_jobs; i++) {
 					h_input_jobs[i] = *(h_unfinished_jobs[jobs_start + i]);
 				}
+				#ifdef TEST_WORKER_GPU
 				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end - 1 << " ("
 					 << num_input_jobs << " jobs).." << endl;
+				#endif
 				// copy input jobs to device
 				gpuErrChk(cudaMemcpy(
 					d_input_jobs,
@@ -240,13 +250,17 @@ public:
 					sizeof(Job) * num_input_jobs,
 					cudaMemcpyHostToDevice
 				));
+				#ifdef TEST_WORKER_GPU
 				cerr << "Copied input jobs to device " << device_id << endl;
+				#endif
 				// process each job
 				doJob(
 					d_input_jobs,
 					num_input_jobs
 				);
+				#ifdef TEST_WORKER_GPU
 				cerr << "finished doJob on device " << device_id << endl;
+				#endif
 				jobs_done += num_input_jobs;
 			}
         }

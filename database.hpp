@@ -22,6 +22,7 @@ namespace database {
 		void create_db();
 		void connect();
 		void init();
+		bool using_cache = true;
 	public:
 		// char* finishJobs_buffer = nullptr;
 		// int64_t finishJobs_buffer_size = 0;
@@ -61,4 +62,10 @@ namespace database {
 		);
 		void printFoundSentences(Dictionary* dict);
 	};
+	// class Database_PSQL : public Database {
+	// 	// PSQL-specific implementations
+	// };
+	// class Database_Memory : public Database {
+	// 	// In-memory-specific implementations
+	// };
 }

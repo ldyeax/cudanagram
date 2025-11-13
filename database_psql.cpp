@@ -42,6 +42,79 @@ using std::endl;
 using std::shared_ptr;
 using std::make_shared;
 
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <unordered_map>
+
+namespace memory_database {
+	static std::atomic<int64_t> max_id{100};
+	std::unordered_map<JobID_t, job::Job> jobs_map;
+	std::mutex map_mutex;
+	class MemoryDatabase {
+		Database* db;
+		void writeJobs(job::Job* jobs, int64_t length)
+		{
+			writeJobs(jobs, length);
+		}
+		void writeJobs(job::Job* jobs, int64_t length)
+		{
+			if (length <= 0) {
+				throw;
+			}
+
+			std::lock_guard<std::mutex> lock(map_mutex);
+			for (int64_t i = 0; i < length; i++) {
+				Job& j = jobs[i];
+				if (j.job_id == 0) {
+					j.job_id = max_id.fetch_add(1);
+				}
+				jobs_map[j.job_id] = j;
+			}
+		}
+		int64_t getJobCountSlow(Impl* impl) {
+			return jobs_map.size();
+		}
+
+		int64_t getUnfinishedJobCountSlow(Impl* impl) {
+			int64_t count = 0;
+			for (const auto& pair : jobs_map) {
+				if (!pair.second.finished) {
+					++count;
+				}
+			}
+			return count;
+		}
+		int64_t getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
+		{
+			if (length <= 0) {
+				throw;
+			}
+			fprintf(stderr, "Found %ld jobs, of which %ld are unfinished\n",
+				getJobCountSlow(),
+				getUnfinishedJobCountSlow()
+			);
+
+			int64_t count = 0;
+			for (const auto& pair : jobs_map) {
+				if (!pair.second.finished) {
+					if (count < length) {
+						buffer[count] = pair.second;
+						// mark as finished immediately
+						// impl->jobs_map[pair.first].finished = true;
+					}
+					else {
+						return count;
+					}
+					++count;
+				}
+			}
+			return count;
+		}
+	};
+}
+
+
 struct database::Impl {
 	unique_ptr<pqxx::connection> conn;
 };
@@ -174,90 +247,34 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 	if (length <= 0) {
 		throw;
 	}
-	{
-		pqxx::table_path job_table_path({"job"});
-		auto s = pqxx::stream_to::table(*txn, job_table_path, {
-			"parent_job_id",
-			"frequency_map",
-			"start",
-			"finished",
-			"is_sentence"
-		});
 
-		for (int32_t i = 0; i < length; i++) {
-			Job& j = jobs[i];
+	pqxx::table_path job_table_path({"job"});
+	auto s = pqxx::stream_to::table(*txn, job_table_path, {
+		"parent_job_id",
+		"frequency_map",
+		"start",
+		"finished",
+		"is_sentence"
+	});
 
-			pqxx::bytes_view fm(
-				j.frequency_map.asStdBytePointer(),
-				NUM_LETTERS_IN_ALPHABET
-			);
-			s.write_values(
-				j.parent_job_id,
-				fm,
-				j.start,
-				j.finished,
-				j.is_sentence
-			);
-		}
+	for (int32_t i = 0; i < length; i++) {
+		Job& j = jobs[i];
 
-		s.complete();
+		pqxx::bytes_view fm(
+			j.frequency_map.asStdBytePointer(),
+			NUM_LETTERS_IN_ALPHABET
+		);
+		s.write_values(
+			j.parent_job_id,
+			fm,
+			j.start,
+			j.finished,
+			j.is_sentence
+		);
 	}
 
-	{
-		// std::vector<JobID_t> parent_job_id_values;
-		// std::vector<FrequencyMapIndex_t> start_values;
-		// std::vector<pqxx::binarystring> frequency_map_values;
-		// parent_job_id_values.reserve(length);
-		// start_values.reserve(length);
-		// frequency_map_values.reserve(length);
-		// for (int32_t i = 0; i < length; i++) {
-		// 	Job& j = jobs[i];
-		// 	parent_job_id_values.push_back(j.parent_job_id);
-		// 	start_values.push_back(j.start);
-		// 	// pqxx::binarystring fs(
-		// 	// 	(const char*)j.frequency_map.asStdBytePointer(),
-		// 	// 	NUM_LETTERS_IN_ALPHABET
-		// 	// );
-		// 	// frequency_map_values.push_back(fs);
-		// 	frequency_map_values.emplace_back(
-		// 		reinterpret_cast<const unsigned char*>(j.frequency_map.asStdBytePointer()),
-		// 		NUM_LETTERS_IN_ALPHABET
-		// 	);
-		// }
+	s.complete();
 
-		// // txn->txn->exec_params(
-		// // 	"INSERT INTO job (parent_job_id, frequency_map, start, finished) "
-		// // 	"SELECT UNNEST($1::BIGINT[]), UNNEST($2::BYTEA[]), UNNEST($3::INTEGER[]), FALSE",
-		// // 	parent_job_id_values,
-		// // 	frequency_map_values,
-		// // 	start_values
-		// // );
-		// txn->txn->exec_params0(
-		// 	"INSERT INTO job (parent_job_id, frequency_map, start, finished)\n"
-		// 	"SELECT u.parent_job_id, u.frequency_map, u.start, FALSE\n"
-		// 	"FROM unnest($1::bigint[], $2::bytea[], $3::int[]) AS u(parent_job_id, frequency_map, start)",
-		// 	parent_job_id_values,
-		// 	frequency_map_values,
-		// 	start_values
-		// );
-	}
-	// {
-	// 	std::string sql;
-	// 	sql.reserve(length * 128);
-	// 	sql += "INSERT INTO job(parent_job_id, frequency_map, start, finished) VALUES";
-	// 	for (int32_t i = 0; i < length; ++i) {
-	// 		const Job& j = jobs[i];
-	// 		pqxx::binarystring fm(
-	// 			reinterpret_cast<const unsigned char*>(j.frequency_map.asStdBytePointer()),
-	// 			NUM_LETTERS_IN_ALPHABET);
-	// 		if (i) sql += ',';
-	// 		sql += '('
-	// 			+ pqxx::to_string(j.parent_job_id) + ','
-	// 			+ txn->txn->quote(fm) + ','
-	// 			+ pqxx::to_string(j.start) + ",FALSE)";
-	// 	}
-	// 	txn->txn->exec0(sql);
-	// }
 }
 
 // void Database::finishJobs_startBuilding() {
