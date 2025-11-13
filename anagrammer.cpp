@@ -243,7 +243,7 @@ void Anagrammer::run()
 			bool tmp_all_cpu_finished = true;
 			bool tmp_all_gpu_finished = num_cpu_workers < num_workers;
 			for (int64_t i = 0; i < num_workers; i++) {
-				cerr << i << "=" << workers[i]->finished.load() << " ";
+				if (i < 4 || i >= num_cpu_workers) cerr << i << "=" << workers[i]->finished.load() << " ";
 				if (!workers[i]->finished.load()) {
 					if (i < num_cpu_workers) {
 						tmp_all_cpu_finished = false;
@@ -263,6 +263,7 @@ void Anagrammer::run()
 				all_gpu_finished = true;
 			}
 			all_finished = all_cpu_finished && all_gpu_finished;
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		}
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
