@@ -237,41 +237,14 @@ public:
         {
 			Database thread_db = Database(db);
 
-            gpuErrChk(cudaSetDevice(device_id));
-
-			// Get our device info based on device id
-			cudaDeviceProp deviceProp;
-			cudaGetDeviceProperties(&deviceProp, device_id);
-
-			// Query kernel resource usage
-			cudaFuncAttributes funcAttrib;
-			gpuErrChk(cudaFuncGetAttributes(&funcAttrib, kernel));
-
-			// Find optimal block size for maximum occupancy
-			int minGridSize, optimalBlockSize;
-			gpuErrChk(cudaOccupancyMaxPotentialBlockSize(
-				&minGridSize,
-				&optimalBlockSize,
-				kernel,
-				0,  // dynamic shared memory
-				0   // max block size (0 = device default)
-			));
-
-			// Set optimal thread count per block
-			worker_gpu_threads_per_block = optimalBlockSize;
-
-			// Maximize GPU utilization: use enough blocks to saturate the GPU
-			// Aim for 2-4 blocks per SM for good occupancy and latency hiding
-			worker_gpu_blocks = deviceProp.multiProcessorCount * 4;
-
-			// Now we can calculate max jobs per iteration based on GPU config
-			max_input_jobs_per_iteration = worker_gpu_blocks * worker_gpu_threads_per_block;
+			max_input_jobs_per_iteration = numThreads();
 			max_new_jobs_per_job = dict->frequency_maps_length;
 
 			h_input_jobs = new Job[max_input_jobs_per_iteration];
 			h_new_jobs_tmp = new Job[max_new_jobs_per_job * max_input_jobs_per_iteration];
 			h_num_new_jobs = new int64_t[max_input_jobs_per_iteration];
 
+            gpuErrChk(cudaSetDevice(device_id));
             gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
             gpuErrChk(cudaMemcpy(
                 d_dict,
@@ -302,21 +275,6 @@ public:
 
 			gpuErrChk(cudaDeviceSynchronize());
 
-			// Adjust stack size if kernel uses significant stack space
-			size_t stackSize = std::max((size_t)(funcAttrib.localSizeBytes * 2), (size_t)(8 * 1024));
-			gpuErrChk(cudaDeviceSetLimit(cudaLimitStackSize, stackSize));
-
-			// Set heap size for dynamic allocations (if needed)
-			gpuErrChk(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 128 * 1024 * 1024));
-
-			//#ifdef TEST_WORKER_GPU
-			fprintf(stderr, "Device %d Kernel config: registers=%d, shared=%zu, local=%zu, const=%zu\n",
-					device_id, funcAttrib.numRegs, funcAttrib.sharedSizeBytes,
-					funcAttrib.localSizeBytes, funcAttrib.constSizeBytes);
-			fprintf(stderr, "Device %d Occupancy: optimal_block_size=%d, blocks=%d, threads_per_block=%d\n",
-					device_id, optimalBlockSize, worker_gpu_blocks, worker_gpu_threads_per_block);
-			//#endif
-
             while (true) {
                 if (ready_to_start) {
 					ready_to_start = false;
@@ -339,13 +297,56 @@ public:
                 }
             }
         }
+
+
+		void setLimits()
+		{
+
+			// Get our device info based on device id
+			cudaDeviceProp deviceProp;
+			cudaGetDeviceProperties(&deviceProp, device_id);
+			worker_gpu_blocks = deviceProp.multiProcessorCount * 2;
+			worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
+
+			// Based on our allocations and device info,
+			//  set number of blocks and threads to utilize the GPU fully with the kernel's stack footprint in mind
+			//  possibly adjusting the heap and stack sizes
+
+			// Query kernel resource usage
+			cudaFuncAttributes funcAttrib;
+			gpuErrChk(cudaFuncGetAttributes(&funcAttrib, kernel));
+
+			// Find optimal block size for maximum occupancy
+			int minGridSize, optimalBlockSize;
+			gpuErrChk(cudaOccupancyMaxPotentialBlockSize(
+				&minGridSize,
+				&optimalBlockSize,
+				kernel,
+				0,  // dynamic shared memory
+				0   // max block size (0 = device default)
+			));
+
+
+
+			//#ifdef TEST_WORKER_GPU
+			fprintf(stderr, "Device %d Kernel config: registers=%d, shared=%zu, local=%zu, const=%zu\n",
+					device_id, funcAttrib.numRegs, funcAttrib.sharedSizeBytes,
+					funcAttrib.localSizeBytes, funcAttrib.constSizeBytes);
+			fprintf(stderr, "Device %d Occupancy: optimal_block_size=%d, blocks=%d, threads_per_block=%d\n",
+					device_id, optimalBlockSize, worker_gpu_blocks, worker_gpu_threads_per_block);
+			//#endif
+
+		}
+
         Worker_GPU(
 			Database* p_db, Dictionary* p_dict, int p_device_id
 		) : Worker(p_db, p_dict)
         {
+            device_id = p_device_id;
 			gpuErrChk(cudaSetDevice(p_device_id));
 
-            device_id = p_device_id;
+			setLimits();
+
             h_thread = std::thread(&Worker_GPU::loop, this);
         }
 
