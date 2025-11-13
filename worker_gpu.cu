@@ -331,6 +331,9 @@ public:
 
 		void setLimits()
 		{
+			// Initialize max_new_jobs_per_job based on dictionary size
+			max_new_jobs_per_job = dict->frequency_maps_length;
+
 			// No allocations needed
 			cerr << "Setting malloc heap size to 0 on device " << device_id << endl;
 			gpuErrChk(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 0));
