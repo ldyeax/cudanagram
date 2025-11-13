@@ -239,6 +239,9 @@ void Anagrammer::run()
 		bool all_finished = false;
 		bool all_cpu_finished = false;
 		bool all_gpu_finished = num_cpu_workers < workers_assigned;
+		cerr << "all_finished=" << all_finished
+			 << " all_cpu_finished=" << all_cpu_finished
+			 << " all_gpu_finished=" << all_gpu_finished << " (because num_cpu_workers < workers_assigned i.e. " << num_cpu_workers << " < " << workers_assigned << ")" << endl;
 		while (!all_finished) {
 			bool tmp_all_cpu_finished = true;
 			bool tmp_all_gpu_finished = num_cpu_workers < workers_assigned;
