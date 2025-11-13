@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 	bool use_cpu = true;
 	bool use_gpu = true;
 	string input(argv[1]);
-	int64_t num_jobs_per_batch = 1024LL * 1024 * 1024LL;
+	int64_t num_jobs_per_batch = 161064LL;
 	for (int i = 2; i < argc; i++) {
 		string arg(argv[i]);
 		if (arg == "--no-cpu") {
