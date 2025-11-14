@@ -288,3 +288,7 @@ void Anagrammer::printFoundSentences()
 	database->printFoundSentences(dict);
 }
 
+void Anagrammer::printDict()
+{
+	dict->printDict();
+}

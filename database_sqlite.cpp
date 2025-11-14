@@ -57,8 +57,6 @@ struct database::Impl {
 			db = nullptr;
 		}
 	}
-	// mutex member
-	std::mutex mtx;
 };
 
 struct database::Txn {
@@ -424,7 +422,7 @@ void Database::printFoundSentences(Dictionary* dict)
 {
 	Txn* txn = beginTransaction();
 
-	const char* select_sql = "SELECT job_id, parent_job_id, start FROM job WHERE is_sentence = 1";
+	const char* select_sql = "SELECT DISTINCT parent_job_id, start FROM job WHERE is_sentence = 1";
 	sqlite3_stmt* stmt;
 	int rc = sqlite3_prepare_v2(txn->db, select_sql, -1, &stmt, nullptr);
 	if (rc != SQLITE_OK) {
@@ -436,9 +434,8 @@ void Database::printFoundSentences(Dictionary* dict)
 
 	int count = 0;
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-		JobID_t job_id = sqlite3_column_int64(stmt, 0);
-		JobID_t parent_id = sqlite3_column_int64(stmt, 1);
-		FrequencyMapIndex_t start = sqlite3_column_int(stmt, 2);
+		JobID_t parent_id = sqlite3_column_int64(stmt, 0);
+		FrequencyMapIndex_t start = sqlite3_column_int(stmt, 1);
 
 		shared_ptr<vector<FrequencyMapIndex_t>> indices = make_shared<vector<FrequencyMapIndex_t>>();
 		printFoundSentence(
@@ -586,35 +583,6 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 
 	sqlite3_finalize(stmt);
 
-	if (out_count == 0) {
-		return 0;
-	}
-
-	// Now update those jobs to be finished
-	const char* update_sql = "UPDATE job SET finished = 1 WHERE job_id = ?";
-	rc = sqlite3_prepare_v2(txn->db, update_sql, -1, &stmt, nullptr);
-	if (rc != SQLITE_OK) {
-		string error = "Failed to prepare update statement: ";
-		error += sqlite3_errmsg(txn->db);
-		throw std::runtime_error(error);
-	}
-
-	for (JobID_t job_id : job_ids) {
-		sqlite3_bind_int64(stmt, 1, job_id);
-
-		rc = sqlite3_step(stmt);
-		if (rc != SQLITE_DONE) {
-			string error = "Failed to update job: ";
-			error += sqlite3_errmsg(txn->db);
-			sqlite3_finalize(stmt);
-			throw std::runtime_error(error);
-		}
-
-		sqlite3_reset(stmt);
-		sqlite3_clear_bindings(stmt);
-	}
-
-	sqlite3_finalize(stmt);
 	return out_count;
 }
 

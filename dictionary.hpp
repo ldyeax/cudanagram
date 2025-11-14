@@ -78,6 +78,9 @@ namespace dictionary {
 		__host__ void printSentence(
 			shared_ptr<vector<FrequencyMapIndex_t>> indices
 		);
+
+		void printWordsAt(FrequencyMapIndex_t fm_index);
+		void printDict();
 	};
 
 	frequency_map::FrequencyMap* getFrequencyMapPointer(

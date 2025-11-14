@@ -301,3 +301,21 @@ int32_t dictionary::Dictionary::createInitialjobs(job::Job* buffer)
 	}
 	return frequency_maps_length;
 }
+
+void dictionary::Dictionary::printWordsAt(FrequencyMapIndex_t fm_index)
+{
+	if (fm_index < 0 || fm_index >= frequency_maps_length) {
+		cerr << "Invalid frequency map index: " << fm_index << endl;
+		return;
+	}
+	for (auto w_i : word_index_lists_for_frequency_maps[fm_index]) {
+		cout << words[w_i] << endl;
+	}
+}
+
+void dictionary::Dictionary::printDict()
+{
+	for (FrequencyMapIndex_t i = 0; i < frequency_maps_length; i++) {
+		printWordsAt(i);
+	}
+}

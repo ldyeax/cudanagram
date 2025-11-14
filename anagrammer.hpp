@@ -47,5 +47,7 @@ namespace anagrammer {
 		void initWorkers(bool p_cpu, bool p_gpu);
         void run();
 		void printFoundSentences();
+		// Print the dictionary after rejection passes included frequency map
+		void printDict();
     };
 }
