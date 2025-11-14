@@ -61,6 +61,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 			dict
 		);
 		num_workers += num_cpu_workers;
+		usleep(1000);
 		fprintf(stderr, "Spawned %ld CPU workers\n", num_cpu_workers);
 	}
 	if (p_gpu) {
@@ -77,6 +78,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 			dict
 		);
 		num_workers += num_gpu_workers;
+		usleep(1000);
 		fprintf(stderr, "Spawned %ld GPU workers\n", num_gpu_workers);
 	}
 	if (num_workers <= 0) {
@@ -87,6 +89,15 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 	for (int64_t i = 0; i < num_workers; i++) {
 		num_available_threads += workers[i]->numThreads();
 	}
+
+	std::int64_t max_int64 = std::numeric_limits<std::int64_t>::max();
+	int64_t jobIDs_per_thread = max_int64 / num_available_threads;
+	for (int64_t i = 0; i < num_workers; i++) {
+		workers[i]->setJobIDIncrementStart(
+			jobIDs_per_thread * workers[i]->numThreads()
+		);
+	}
+
 	fprintf(stderr, "Anagrammer::initWorkers: total available threads = %ld\n", num_available_threads);
 	spawned_workers = true;
 }
@@ -109,7 +120,7 @@ void Anagrammer::insertStartJob()
 	Job startJob = {};
     dict->copyInputFrequencyMap(&startJob.frequency_map);
     startJob.start = 0;
-    database->writeUnfinishedJob(startJob);
+    database->writeJob(startJob);
 }
 
 Anagrammer::Anagrammer(int64_t p_num_jobs_per_batch, string p_input)

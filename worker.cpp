@@ -14,7 +14,6 @@ using std::vector;
 
 void Worker::loop()
 {
-	Database thread_db = Database(db);
 	while (true) {
 		while (!ready_to_start) {
 			//std::this_thread::yield();
@@ -25,7 +24,7 @@ void Worker::loop()
 		//cerr << "Worker_CPU " << id << " starting doJobs(): ready_to_start=" << ready_to_start << " finished= " << finished << endl;
 		doJobs();
 		//cerr << "Worker_CPU " << id << " finished doJobs(), creating " << last_result.new_jobs.size() << " new jobs: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
-		auto txn = thread_db.beginTransaction();
+		auto txn = thread_db->beginTransaction();
 		//cerr << "Worker_CPU " << id << " finished beginTransaction: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
 		WriteResult(&last_result, dict, txn);
 		//cerr << "Worker_CPU " << id << " committed " << last_result.new_jobs.size() << " new jobs." << endl;
@@ -34,7 +33,7 @@ void Worker::loop()
 		// 	last_result.new_jobs.size(),
 		// 	txn
 		// );
-		thread_db.commitTransaction(txn);
+		thread_db->commitTransaction(txn);
 		finished = true;
 	}
 }
@@ -47,7 +46,7 @@ Worker::Worker(database::Database* p_db, dictionary::Dictionary* p_dict)
     if (p_dict == nullptr) {
         throw;
     }
-    db = p_db;
+    thread_db = new Database(p_db);
     dict = p_dict;
 }
 
@@ -56,22 +55,19 @@ void Worker::WriteResult(Result* result, dictionary::Dictionary* dict, Txn* txn)
 	if (result == nullptr) {
 		result = &last_result;
 	}
-	if (db == nullptr) {
-		throw "no db";
-	}
 	if (txn == nullptr) {
 		throw "no txn";
 	}
 	// fprintf(stderr, "WriteResult result=%p dict=%p txn=%p db=%p txn=%p\n", (void*)result, (void*)dict, (void*)txn, (void*)db);
 	// fprintf(stderr, "result->new_jobs.size() = %ld\n", result->new_jobs.size());
 	// fprintf(stderr, "result->new_jobs.data() = %p\n", (void*)result->new_jobs.data());
-    if (result->new_jobs.size() > 0) {
-        db->writeJobs(
-            result->new_jobs.data(),
-            result->new_jobs.size(),
-            txn
-        );
-    }
+	if (result->new_jobs.size() > 0) {
+		thread_db->writeJobs(
+			result->new_jobs.data(),
+			result->new_jobs.size(),
+			txn
+		);
+	}
 }
 
 void Worker::doJobs()

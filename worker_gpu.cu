@@ -272,8 +272,6 @@ public:
 		}
         void loop() override
         {
-			Database thread_db = Database(db);
-
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
 			#endif
@@ -368,9 +366,9 @@ public:
 					fprintf(stderr, "Worker_GPU::loop: done processing jobs, writing results to database\n");
 					fprintf(stderr, "Worker_GPU::loop: number of new jobs: %ld\n", last_result.new_jobs.size());
 #endif
-					auto txn = thread_db.beginTransaction();
+					auto txn = thread_db->beginTransaction();
 					WriteResult(&last_result, dict, txn);
-					thread_db.commitTransaction(txn);
+					thread_db->commitTransaction(txn);
 					finished = true;
                 }
                 else {

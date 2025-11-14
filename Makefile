@@ -17,6 +17,8 @@ AVX_O = avx.o
 DB_SRC = database.cpp
 DB_O = database.o
 
+LSQLITE3 = -lsqlite3
+
 NVCC = nvcc
 NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math
 LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx -lsqlite3
@@ -29,6 +31,7 @@ TEST_DB_SRC = database_test.cpp
 TEST_DB = database_test
 
 DICTIONARY_CU = dictionary.cu
+DICTIONARY_CPP = dictionary.cpp
 
 NVCC_XLINKER = -Xlinker -rpath -Xlinker $(PQXX_LIB)
 
@@ -37,7 +40,7 @@ WORKER_CPU_SRC = worker_cpu.cpp
 WORKER_GPU_O = worker_gpu.o
 WORKER_GPU_SRC = worker_gpu.cu
 FM_CU = frequency_map.cu
-
+FM_CPP = frequency_map.cpp
 FM_O = frequency_map.o
 DICTIONARY_O = dictionary.o
 
@@ -88,6 +91,7 @@ clean:
 	rm -f test_avx
 	rm -f dictionary_test
 	rm -f worker_cpu_test
+	rm -f sqlite_test
 	rm -f *.o
 
 pqxx:
@@ -127,3 +131,15 @@ worker_cpu_test:
 		-o worker_cpu_test \
 		anagrammer.cpp worker.cpp worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
 		$(GPP_LDFLAGS)
+
+sqlite_test:
+	$(GPP) $(GPP_FLAGS) \
+		-DSQLITE_TEST \
+		sqlite_test.cpp \
+		$(DB_SRC) \
+		$(DICTIONARY_CPP) \
+		$(FM_CPP) \
+		$(AVX_SRC) \
+		-o sqlite_test \
+		$(GPP_FLAGS) \
+		$(LSQLITE3)

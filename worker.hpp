@@ -30,7 +30,7 @@ namespace worker {
 
         Result last_result = {};
         Worker(database::Database* db, dictionary::Dictionary* dict);
-        database::Database* db = nullptr;
+		database::Database* thread_db = nullptr;
         dictionary::Dictionary* dict = nullptr;
         std::atomic<bool> finished{false};
 		virtual void reset()
@@ -50,6 +50,10 @@ namespace worker {
         virtual void doJobs_async();
         virtual int32_t numThreads() = 0;
         void WriteResult(Result* result, dictionary::Dictionary* dict, database::Txn* txn);
+		void setJobIDIncrementStart(int64_t start)
+		{
+			thread_db->setJobIDIncrementStart(start);
+		}
     };
     class WorkerFactory {
     public:

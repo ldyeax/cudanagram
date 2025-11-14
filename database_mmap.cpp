@@ -128,13 +128,13 @@ Database::Database()
 	connect();
 }
 
-void Database::writeUnfinishedJob(job::Job job) {
+void Database::writeJob(job::Job job) {
 	Txn txn(impl);
 	writeJobs(&job, 1, &txn);
 	txn.commit();
 }
 
-void Database::writeUnfinishedJob(job::Job job, Txn* txn) {
+void Database::writeJob(job::Job job, Txn* txn) {
 	writeJobs(&job, 1, txn);
 }
 

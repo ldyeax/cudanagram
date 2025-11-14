@@ -18,12 +18,13 @@ namespace database {
 	private:
 		std::string getNewDatabaseName();
 		std::string db_name;
-		Impl* impl;
+		Impl* impl = nullptr;
 		void create_db();
 		void connect();
 		void init();
 		bool using_cache = true;
 	public:
+		databaseType_t getDatabaseType();
 		// char* finishJobs_buffer = nullptr;
 		// int64_t finishJobs_buffer_size = 0;
 		Txn* beginTransaction();
@@ -33,8 +34,8 @@ namespace database {
 		Database(std::string existing_db_name);
 		Database(Database* other);
 		// Write job to db, where its ID will be created
-		void writeUnfinishedJob(job::Job);
-		void writeUnfinishedJob(job::Job, Txn* txn);
+		void writeJob(job::Job);
+		void writeJob(job::Job, Txn* txn);
 		void writeJobs(job::Job* jobs, int64_t length);
 		void writeJobs(job::Job* jobs, int64_t length, Txn* txn);
 		/**
@@ -61,6 +62,8 @@ namespace database {
 			Txn* txn
 		);
 		void printFoundSentences(Dictionary* dict);
+		void addChild(Database* child);
+		void setJobIDIncrementStart(int64_t start);
 	};
 	// class Database_PSQL : public Database {
 	// 	// PSQL-specific implementations

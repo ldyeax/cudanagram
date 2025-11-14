@@ -12,6 +12,8 @@
  * );
  */
 
+// #define SQLITE_TEST
+
 #include "database.hpp"
 #include <iostream>
 #include <cstdlib>
@@ -30,6 +32,7 @@
 #include <cstdio>
 #include <sqlite3.h>
 #include <stdexcept>
+#include <atomic>
 
 #include <mutex>
 
@@ -48,9 +51,18 @@ using std::endl;
 using std::shared_ptr;
 using std::make_shared;
 
+std::atomic<int64_t> database_id {1};
+
 struct database::Impl {
-	sqlite3* db;
-	Impl() : db(nullptr) {}
+	std::mutex mutex;
+	sqlite3* db = nullptr;
+	Database* parent = nullptr;
+	vector<Database*> children {};
+	int64_t id = 0;
+	Impl() : db(nullptr)
+	{
+		id = database_id.fetch_add(1);
+	}
 	~Impl() {
 		if (db) {
 			sqlite3_close(db);
@@ -100,10 +112,15 @@ struct database::Txn {
 	}
 };
 
+databaseType_t Database::getDatabaseType()
+{
+	return DB_TYPE_SQLITE;
+}
+
 std::string Database::getNewDatabaseName()
 {
 	auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-	return "cudanagram_" + current_unix_timestamp + ".db";
+	return "sqlite/cudanagram_" + current_unix_timestamp + ".db";
 }
 
 void Database::init()
@@ -118,6 +135,9 @@ Txn* Database::beginTransaction()
 
 void Database::commitTransaction(Txn* txn)
 {
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
+	}
 	txn->commit();
 	delete txn;
 }
@@ -142,13 +162,21 @@ Database::Database(std::string existing_db_name)
 	cerr << "Connected to existing db" << endl;
 #endif
 }
+void Database::addChild(Database* other)
+{
+	impl->children.push_back(other);
+}
 Database::Database(Database* other)
 {
+	init();
+	static std::mutex construct_mutex;
+	std::lock_guard<std::mutex> lock(construct_mutex);
 #ifdef TEST_DB
 	cerr << "Constructing Database object with existing db name: " << other->db_name << endl;
 #endif
-	init();
-	db_name = other->db_name;
+	other->addChild(this);
+	impl->parent = other;
+	create_db();
 	connect();
 #ifdef TEST_DB
 	cerr << "Connected to existing db" << endl;
@@ -157,7 +185,12 @@ Database::Database(Database* other)
 
 void Database::create_db()
 {
-	db_name = getNewDatabaseName();
+	if (impl->parent != nullptr) {
+		db_name = string(impl->parent->db_name) + string(".child.") + std::to_string(impl->id) + string(".db");
+	}
+	else {
+		db_name = getNewDatabaseName();
+	}
 	cerr << "Creating SQLite db with name " << db_name << endl;
 
 	// Open with flags to support multi-threaded access
@@ -179,10 +212,10 @@ void Database::create_db()
 		"PRAGMA journal_mode = WAL;"  // WAL mode allows concurrent readers
 		"PRAGMA temp_store = MEMORY;"
 		"PRAGMA cache_size = -64000;"  // 64MB cache
-		"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
-
+		//"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
+	;
 	if (sqlite3_exec(impl->db, pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
-		string error = "Failed to set pragmas: ";
+		string error = "Failed to set pragmas for database " + db_name + ": ";
 		if (err_msg) {
 			error += err_msg;
 			sqlite3_free(err_msg);
@@ -223,12 +256,47 @@ void Database::create_db()
 		throw std::runtime_error(error);
 	}
 
-	cerr << "Created new SQLite db" << endl;
+	Job placeholder_job;
+	placeholder_job.job_id = -impl->id;
+	placeholder_job.parent_job_id = 0;
+	placeholder_job.is_sentence = false;
+	placeholder_job.finished = false;
+
+	const char* insert_placeholder_job_sql =
+		"INSERT INTO job (job_id, parent_job_id, frequency_map, start, finished, is_sentence) VALUES (?, ?, ?, ?, ?, ?)";
+	sqlite3_stmt* stmt;
+	// job_id = -impl->id, finished=true
+	rc = sqlite3_prepare_v2(impl->db, insert_placeholder_job_sql, -1, &stmt, nullptr);
+	if (rc != SQLITE_OK) {
+		string error = "Failed to prepare insert placeholder job statement: ";
+		error += sqlite3_errmsg(impl->db);
+		throw std::runtime_error(error);
+	}
+	// sqlite3_bind_int64(stmt, 1, placeholder_job.job_id);
+	// sqlite3_bind_blob(stmt, 2, placeholder_job.frequency_map.asStdBytePointer(),
+	// 					NUM_LETTERS_IN_ALPHABET, SQLITE_STATIC);
+	sqlite3_bind_int64(stmt, 1, -impl->id);
+	sqlite3_bind_int64(stmt, 2, 0);
+	sqlite3_bind_blob(stmt, 3, placeholder_job.frequency_map.asStdBytePointer(),
+						NUM_LETTERS_IN_ALPHABET, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 4, 0);
+	sqlite3_bind_int(stmt, 5, 1);
+	sqlite3_bind_int(stmt, 6, 0);
+	rc = sqlite3_step(stmt);
+	if (rc != SQLITE_DONE) {
+		string error = "Failed to insert placeholder job:";
+		error += sqlite3_errmsg(impl->db);
+		sqlite3_finalize(stmt);
+		throw std::runtime_error(error);
+	}
+	sqlite3_finalize(stmt);
+
+	//cerr << "Created new SQLite db" << endl;
 }
 
 void Database::connect()
 {
-	cerr << "Connecting to SQLite db: " << db_name << endl;
+	//cerr << "Connecting to SQLite db: " << db_name << endl;
 
 	// Open with flags to support multi-threaded access
 	int rc = sqlite3_open_v2(db_name.c_str(), &impl->db,
@@ -268,13 +336,16 @@ Database::Database()
 	connect();
 }
 
-void Database::writeUnfinishedJob(job::Job job) {
+void Database::writeJob(job::Job job) {
 	Txn txn(impl);
 	writeJobs(&job, 1, &txn);
 	txn.commit();
 }
 
-void Database::writeUnfinishedJob(job::Job job, Txn* txn) {
+void Database::writeJob(job::Job job, Txn* txn) {
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
+	}
 	writeJobs(&job, 1, txn);
 }
 
@@ -288,8 +359,13 @@ void Database::writeJobs(job::Job* jobs, int64_t length)
 
 void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
+	cerr << "Writing " << length << " jobs to database " << db_name;
+	fprintf(stderr, " txn->db=%p\n", txn->db);
 	if (length <= 0) {
 		throw std::invalid_argument("Invalid length in writeJobs");
+	}
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
 	}
 
 	const char* insert_sql =
@@ -303,9 +379,15 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 		error += sqlite3_errmsg(txn->db);
 		throw std::runtime_error(error);
 	}
-
+#ifdef SQLITE_TEST
+	cerr << "Database " << impl->id << ": Prepared insert statement for writing jobs" << endl;
+#endif
 	for (int32_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
+		#ifdef SQLITE_TEST
+		cerr << "Database " << impl->id << ": Writing job to database: " << endl;
+		j.print();
+		#endif
 
 		// Bind parameters
 		sqlite3_bind_int64(stmt, 1, j.parent_job_id);
@@ -330,6 +412,8 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 	}
 
 	sqlite3_finalize(stmt);
+
+	cerr << "Done writing " << length << " jobs to database " << db_name << endl;
 }
 
 void Database::finishJobs(job::Job* jobs, int64_t length) {
@@ -341,6 +425,9 @@ void Database::finishJobs(job::Job* jobs, int64_t length) {
 void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
     if (length <= 0) {
 		return;
+	}
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
 	}
 
 	const char* update_sql = "UPDATE job SET finished = 1 WHERE job_id = ?";
@@ -379,6 +466,9 @@ void Database::printFoundSentence(
 	Txn* txn
 )
 {
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
+	}
 	if (parent_id != 0) {
 		indices->push_back(start);
 
@@ -476,9 +566,21 @@ void rowToJob(sqlite3_stmt* stmt, job::Job& j)
 
 int64_t Database::getUnfinishedJobs(int64_t length, Job* buffer)
 {
+	#ifdef SQLITE_TEST
+	cerr << "Database::getUnfinishedJobs called with length " << length << endl;
+	#endif
 	Txn txn(impl);
+	#ifdef SQLITE_TEST
+	cerr << "Started transaction for getUnfinishedJobs" << endl;
+	#endif
 	int64_t out_count = getUnfinishedJobs(length, buffer, &txn);
+	#ifdef SQLITE_TEST
+	cerr << "Fetched " << out_count << " unfinished jobs" << endl;
+	#endif
 	txn.commit();
+	#ifdef SQLITE_TEST
+	cerr << "Committed transaction for getUnfinishedJobs" << endl;
+	#endif
 	return out_count;
 }
 
@@ -537,18 +639,66 @@ void Database::printJobsStats()
 	Txn txn(impl);
 	int64_t total_jobs = getJobCountSlow(&txn);
 	int64_t unfinished_jobs = getUnfinishedJobCountSlow(&txn);
-	cerr << "Jobs stats: total_jobs=" << total_jobs
+	cerr << "Database " << db_name << ": "
+		 << "Jobs stats: total_jobs=" << total_jobs
 		 << ", unfinished_jobs=" << unfinished_jobs << endl;
 	txn.commit();
 }
 
+void Database::setJobIDIncrementStart(int64_t start)
+{
+	char* err_msg = nullptr;
+	string seq_sql =
+		"UPDATE sqlite_sequence SET seq = " + std::to_string(start) + " WHERE name = 'job';";
+	#ifdef SQLITE_TEST
+	cerr << "Setting job_id increment start with SQL: " << seq_sql << endl;
+	#endif
+
+	if (sqlite3_exec(impl->db, seq_sql.c_str(), nullptr, nullptr, &err_msg) != SQLITE_OK) {
+		string error = "Failed to set job_id increment start: ";
+		if (err_msg) {
+			error += err_msg;
+			sqlite3_free(err_msg);
+		}
+		throw std::runtime_error(error);
+	}
+
+	#ifdef SQLITE_TEST
+	cerr << "Set job_id increment start to " << start << endl;
+	// fetch start from db
+	const char* fetch_sql = "SELECT seq FROM sqlite_sequence WHERE name = 'job';";
+	sqlite3_stmt* stmt;
+	int rc = sqlite3_prepare_v2(impl->db, fetch_sql, -1, &stmt, nullptr);
+	if (rc != SQLITE_OK) {
+		string error = "Failed to prepare fetch statement: ";
+		error += sqlite3_errmsg(impl->db);
+		throw std::runtime_error(error);
+	}
+	rc = sqlite3_step(stmt);
+	if (rc != SQLITE_ROW) {
+		sqlite3_finalize(stmt);
+		throw std::runtime_error("Failed to fetch job_id increment start");
+	}
+	int64_t fetched_start = sqlite3_column_int64(stmt, 0);
+	sqlite3_finalize(stmt);
+	cerr << "Verified job_id increment start is now " << fetched_start << endl;
+	#endif
+}
+
 int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 {
+	#ifdef SQLITE_TEST
+	cerr << "Database::getUnfinishedJobs called with length " << length << endl;
+	#endif
 	if (length <= 0) {
 		throw std::invalid_argument("Invalid length in getUnfinishedJobs");
 	}
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
+	}
 
-	fprintf(stderr, "Found %ld jobs, of which %ld are unfinished\n",
+	fprintf(stderr, "Database %ld: Found %ld jobs, of which %ld are unfinished\n",
+		impl->id,
 		getJobCountSlow(txn),
 		getUnfinishedJobCountSlow(txn)
 	);
@@ -562,6 +712,10 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		"FROM job "
 		"WHERE finished = 0 "
 		"LIMIT " + std::to_string(length);
+
+	#ifdef SQLITE_TEST
+	cerr << "Preparing select query: " << select_query << endl;
+	#endif
 
 	sqlite3_stmt* stmt;
 	int rc = sqlite3_prepare_v2(txn->db, select_query.c_str(), -1, &stmt, nullptr);
@@ -577,11 +731,38 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && out_count < length) {
 		Job& j = buffer[out_count];
 		rowToJob(stmt, j);
+		#ifdef SQLITE_TEST
+		cerr << "Database " << impl->id << ": Fetched unfinished job: " << endl;
+		j.print();
+		#endif
 		job_ids.push_back(j.job_id);
 		out_count++;
 	}
 
 	sqlite3_finalize(stmt);
+
+	if (out_count < length) {
+		#ifdef SQLITE_TEST
+		cerr << "Fetching unfinished jobs from " << impl->children.size() << " child databases" << endl;
+		cerr << "start out_count = " << out_count << endl;
+		fprintf(stderr, "start buffer=%p\n", buffer);
+		#endif
+		for (auto child_db : impl->children) {
+			#ifdef SQLITE_TEST
+			cerr << "Fetching unfinished jobs from child database " << child_db->impl->id;
+			fprintf(stderr, " into &buffer[out_count]=%p\n", &buffer[out_count]);
+			#endif
+			int64_t child_count = child_db->getUnfinishedJobs(length - out_count, &buffer[out_count]);
+			#ifdef SQLITE_TEST
+			cerr << "Fetched " << child_count << " unfinished jobs from child database "
+				 << child_db->impl->id << endl;
+			#endif
+			out_count += child_count;
+			if (out_count >= length) {
+				break;
+			}
+		}
+	}
 
 	return out_count;
 }
@@ -597,7 +778,10 @@ job::Job Database::getJob(JobID_t id)
 job::Job Database::getJob(JobID_t id, Txn* txn)
 {
 	if (id < 1) {
-		throw std::invalid_argument("invalid id in Database::getJob: " + std::to_string(id));
+		throw std::invalid_argument("invalid id: " + std::to_string(id));
+	}
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
 	}
 
 	const char* select_sql =
@@ -618,6 +802,13 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 	rc = sqlite3_step(stmt);
 	if (rc != SQLITE_ROW) {
 		sqlite3_finalize(stmt);
+		for (auto child_db : impl->children) {
+			try {
+				return child_db->getJob(id);
+			} catch (const std::runtime_error&) {
+				// Ignore and try next child
+			}
+		}
 		throw std::runtime_error("Job not found with id: " + std::to_string(id));
 	}
 

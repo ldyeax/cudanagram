@@ -1,4 +1,11 @@
 #pragma once
+#include <cstdint>
+#define databaseType_t int8_t
+#define DB_TYPE_PSQL 1
+#define DB_TYPE_SQLITE 2
+#define DB_TYPE_HASHMAP 3
+#define DB_TYPE_MMAP 4
+
 #include <cstdio>
 #ifdef __CUDACC__
 	/**
