@@ -68,6 +68,11 @@ ifdef CUDANAGRAM_THREADS_PER_CPU_WORKER
 	NVCC_CFLAGS += -DCUDANAGRAM_THREADS_PER_CPU_WORKER=$(CUDANAGRAM_THREADS_PER_CPU_WORKER)
 endif
 
+ifdef SQLITE_TEST
+	GPP_FLAGS  += -DSQLITE_TEST
+	NVCC_CFLAGS += -DSQLITE_TEST
+endif
+
 
 all: $(TARGET)
 
@@ -134,7 +139,6 @@ worker_cpu_test:
 
 sqlite_test:
 	$(GPP) $(GPP_FLAGS) \
-		-DSQLITE_TEST \
 		sqlite_test.cpp \
 		$(DB_SRC) \
 		$(DICTIONARY_CPP) \

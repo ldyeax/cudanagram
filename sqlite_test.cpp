@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <chrono>
 
 using database::Database;
 using namespace std;
@@ -130,6 +131,36 @@ int main()
 	tmp_output[2048].print();
 	cout << "tmp_output[2049]:" << endl;
 	tmp_output[2049].print();
+
+	int64_t large_input_count = 5974891L;
+	Job* large_input = new Job[large_input_count];
+	Job* large_output = new Job[large_input_count];
+	for (int64_t i = 0; i < large_input_count; i++) {
+		large_input[i].job_id = 0;
+		large_input[i].parent_job_id = i + 10000000L;
+		large_input[i].start = i + 10000000L;
+		large_input[i].finished = false;
+		large_input[i].is_sentence = false;
+	}
+	cout << "Large write test to child: " << endl;
+	auto start_time = std::chrono::high_resolution_clock::now();
+	child1.writeJobs(large_input, large_input_count);
+	auto end_time = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+	cout << "Wrote " << large_input_count << " jobs to child in " << duration << " ms" << endl;
+
+	start_time = std::chrono::high_resolution_clock::now();
+	int64_t expected_output_count = (int64_t)count4 + large_input_count;
+	int64_t count5 = db.getUnfinishedJobs(expected_output_count * 2L, large_output);
+	end_time = std::chrono::high_resolution_clock::now();
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+	cout << "Fetched " << count5 << " unfinished jobs from parent after child large write in "
+		 << duration << " ms" << endl;
+
+	if (count5 != expected_output_count) {
+		cerr << "Expected " << expected_output_count << " unfinished jobs after child large write!" << endl;
+		return 1;
+	}
 
 	return 0;
 }

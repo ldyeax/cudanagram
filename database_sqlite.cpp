@@ -208,11 +208,12 @@ void Database::create_db()
 	// Enable performance optimizations and multi-threading support
 	char* err_msg = nullptr;
 	const char* pragmas =
+		"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
+		"PRAGMA journal_mode = OFF;"  // Memory journal for speed
 		"PRAGMA synchronous = OFF;"
-		"PRAGMA journal_mode = WAL;"  // WAL mode allows concurrent readers
 		"PRAGMA temp_store = MEMORY;"
-		"PRAGMA cache_size = -64000;"  // 64MB cache
-		//"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
+		"PRAGMA cache_size = -16000000;"  // 16GB cache
+		"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
 	;
 	if (sqlite3_exec(impl->db, pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
 		string error = "Failed to set pragmas for database " + db_name + ": ";
@@ -243,18 +244,18 @@ void Database::create_db()
 		throw std::runtime_error(error);
 	}
 
-	// Create index on finished column for faster queries
-	const char* create_index_sql =
-		"CREATE INDEX idx_finished ON job(finished) WHERE finished = 0";
-
-	if (sqlite3_exec(impl->db, create_index_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
-		string error = "Failed to create index: ";
-		if (err_msg) {
-			error += err_msg;
-			sqlite3_free(err_msg);
-		}
-		throw std::runtime_error(error);
-	}
+	// Don't create index during initial creation - it slows down bulk inserts
+	// Index can be created later if needed for queries
+	// const char* create_index_sql =
+	// 	"CREATE INDEX idx_finished ON job(finished) WHERE finished = 0";
+	// if (sqlite3_exec(impl->db, create_index_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+	// 	string error = "Failed to create index: ";
+	// 	if (err_msg) {
+	// 		error += err_msg;
+	// 		sqlite3_free(err_msg);
+	// 	}
+	// 	throw std::runtime_error(error);
+	// }
 
 	Job placeholder_job;
 	placeholder_job.job_id = -impl->id;
@@ -316,7 +317,8 @@ void Database::connect()
 		"PRAGMA synchronous = OFF;"
 		"PRAGMA journal_mode = WAL;"  // WAL mode allows concurrent readers
 		"PRAGMA temp_store = MEMORY;"
-		"PRAGMA cache_size = -64000;"
+		"PRAGMA cache_size = -2000000;"  // 2GB cache
+		"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
 		"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
 
 	if (sqlite3_exec(impl->db, pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
@@ -359,8 +361,10 @@ void Database::writeJobs(job::Job* jobs, int64_t length)
 
 void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
+	#ifdef SQLITE_TEST
 	cerr << "Writing " << length << " jobs to database " << db_name;
 	fprintf(stderr, " txn->db=%p\n", txn->db);
+	#endif
 	if (length <= 0) {
 		throw std::invalid_argument("Invalid length in writeJobs");
 	}
@@ -382,7 +386,7 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 #ifdef SQLITE_TEST
 	cerr << "Database " << impl->id << ": Prepared insert statement for writing jobs" << endl;
 #endif
-	for (int32_t i = 0; i < length; i++) {
+	for (int64_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
 		#ifdef SQLITE_TEST
 		cerr << "Database " << impl->id << ": Writing job to database: " << endl;
@@ -408,12 +412,13 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 
 		// Reset for next iteration
 		sqlite3_reset(stmt);
-		sqlite3_clear_bindings(stmt);
 	}
 
 	sqlite3_finalize(stmt);
 
+#ifdef SQLITE_TEST
 	cerr << "Done writing " << length << " jobs to database " << db_name << endl;
+#endif
 }
 
 void Database::finishJobs(job::Job* jobs, int64_t length) {
@@ -697,11 +702,13 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		throw std::invalid_argument("Transaction does not belong to this database");
 	}
 
+	#ifdef SQLITE_TEST
 	fprintf(stderr, "Database %ld: Found %ld jobs, of which %ld are unfinished\n",
 		impl->id,
 		getJobCountSlow(txn),
 		getUnfinishedJobCountSlow(txn)
 	);
+	#endif
 
 	// SQLite doesn't support UPDATE...RETURNING directly like PostgreSQL
 	// We need to do it in two steps: SELECT then UPDATE
