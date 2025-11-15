@@ -24,9 +24,9 @@ namespace worker {
 	public:
 		std::atomic<bool> ready_to_start{false};
 		virtual void doJobs();
-		virtual void loop();
+		virtual void loop() = 0;
 		virtual void doJob(job::Job* input, int64_t count) = 0;
-		vector<Job*> unfinished_jobs;
+		vector<Job> unfinished_jobs;
 
         Result last_result = {};
         Worker(database::Database* db, dictionary::Dictionary* dict);
@@ -47,6 +47,24 @@ namespace worker {
 		 *  before starting the processing batch
          **/
         virtual int64_t takeJobs(Job* buffer, int64_t max_length) = 0;
+        /**
+         * Takes up to max_length jobs from the buffer,
+		 *  writes the jobs to its own database,
+		 *  and returns number of jobs taken.
+		 * Call multiple times to keep giving jobs for the next round -
+		 *  if a worker "prefers" only 1 job, but you have more jobs than active workers,
+		 *  the thing to do is to keep looping over the workers and giving them jobs
+		 *  before starting the processing batch
+         **/
+        virtual int64_t takeJobsAndWrite(Job* buffer, int64_t max_length) = 0;
+		/**
+		 * Take up to max_length jobs from own child database, returns number of jobs taken
+		 * Call multiple times to keep giving jobs for the next round -
+		 * if a worker "prefers" only 1 job, but you have more jobs than active workers,
+		 * the thing to do is to keep looping over the workers and giving them jobs
+		 * before starting the processing batch
+		 **/
+		virtual int64_t takeJobs(int64_t max_length) = 0;
         virtual void doJobs_async();
         virtual int32_t numThreads() = 0;
         void WriteResult(Result* result, dictionary::Dictionary* dict, database::Txn* txn);
@@ -54,6 +72,9 @@ namespace worker {
 		{
 			thread_db->setJobIDIncrementStart(start);
 		}
+		void finishJobs();
+		void finishJobs(database::Txn* txn);
+		void finishJobs_async();
     };
     class WorkerFactory {
     public:

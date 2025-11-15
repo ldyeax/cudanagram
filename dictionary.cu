@@ -18,6 +18,7 @@ using std::string;
 using std::vector;
 using std::endl;
 using std::cerr;
+using job::Job;
 
 void dictionary::Dictionary::printStats()
 {
@@ -289,17 +290,78 @@ void dictionary::Dictionary::printSentence(
 	}
 }
 
-int32_t dictionary::Dictionary::createInitialjobs(job::Job* buffer)
+int64_t processJob(Dictionary* dict, Job* p_input, shared_ptr<vector<Job>> existing_jobs)
 {
-	for (FrequencyMapIndex_t i = 0; i < frequency_maps_length; i++) {
-		buffer->parent_job_id = 0;
-		copyInputFrequencyMap(&buffer->frequency_map);
-		buffer->start = i;
-		buffer->finished = false;
-		buffer->is_sentence = false;
-		buffer++;
+	frequency_map::FrequencyMap tmp = {};
+	job::Job tmp_job = {};
+	tmp_job.parent_job_id = p_input->job_id;
+	FrequencyMapIndex_t start = p_input->start;
+	FrequencyMapIndex_t end = dict->frequency_maps_length;
+	if (start >= end) {
+		throw;
 	}
-	return frequency_maps_length;
+	int64_t ret = 0;
+	for (FrequencyMapIndex_t i = start; i < end; i++) {
+		frequency_map::Result result = dict->h_compareFrequencyMaps_pip(
+			&p_input->frequency_map,
+			i,
+			&tmp_job.frequency_map
+		);
+		if (result == INCOMPLETE_MATCH) {
+			tmp_job.job_id = existing_jobs->size() + 1;
+			tmp_job.start = i;
+			tmp_job.is_sentence = false;
+			tmp_job.finished = false;
+			existing_jobs->push_back(tmp_job);
+			ret++;
+		}
+		else if (result == COMPLETE_MATCH) {
+			tmp_job.job_id = existing_jobs->size() + 1;
+			tmp_job.start = i;
+			tmp_job.is_sentence = true;
+			tmp_job.finished = true;
+			existing_jobs->push_back(tmp_job);
+			ret++;
+		}
+	}
+
+	p_input->finished = true;
+	return ret;
+}
+
+shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int32_t count)
+{
+	shared_ptr<vector<Job>> ret = make_shared<vector<Job>>();
+	ret->reserve(count * 4);
+	//ret->push_back(start_job);
+	Job& start_job = ret->emplace_back();
+	start_job.job_id = 1;
+	start_job.parent_job_id = 0;
+	copyInputFrequencyMap(&start_job.frequency_map);
+	start_job.start = 0;
+	start_job.finished = false;
+	start_job.is_sentence = false;
+
+	int64_t unfinished_count = 1;
+	while (unfinished_count < count) {
+		int64_t initial_size = ret->size();
+		int64_t added = 0;
+		for (int32_t i = 0; i < initial_size; i++) {
+			if (!ret->at(i).finished) {
+				added += processJob(this, &ret->at(i), ret);
+			}
+		}
+		if (added == 0) {
+			break;
+		}
+		unfinished_count = 0;
+		for (int64_t i = 0; i < ret->size(); i++) {
+			if (!ret->at(i).finished) {
+				unfinished_count++;
+			}
+		}
+	}
+	return ret;
 }
 
 void dictionary::Dictionary::printWordsAt(FrequencyMapIndex_t fm_index)

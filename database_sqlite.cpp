@@ -340,7 +340,7 @@ Database::Database()
 
 void Database::writeJob(job::Job job) {
 	Txn txn(impl);
-	writeJobs(&job, 1, &txn);
+	writeNewJobs(&job, 1, &txn);
 	txn.commit();
 }
 
@@ -348,18 +348,18 @@ void Database::writeJob(job::Job job, Txn* txn) {
 	if (txn->db != impl->db) {
 		throw std::invalid_argument("Transaction does not belong to this database");
 	}
-	writeJobs(&job, 1, txn);
+	writeNewJobs(&job, 1, txn);
 }
 
-void Database::writeJobs(job::Job* jobs, int64_t length)
+void Database::writeNewJobs(job::Job* jobs, int64_t length)
 {
 	Txn txn(impl);
-	writeJobs(jobs, length, &txn);
+	writeNewJobs(jobs, length, &txn);
 	txn.commit();
 }
 
 
-void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
+void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
 	#ifdef SQLITE_TEST
 	cerr << "Writing " << length << " jobs to database " << db_name;
@@ -421,10 +421,79 @@ void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
 #endif
 }
 
+void Database::insertJobsWithIDs(job::Job* jobs, int64_t length) {
+	Txn txn(impl);
+	insertJobsWithIDs(jobs, length, &txn);
+	txn.commit();
+}
+
+void Database::insertJobsWithIDs(job::Job* jobs, int64_t length, Txn* txn) {
+	if (length <= 0) {
+		throw std::invalid_argument("Invalid length in insertJobsWithIDs");
+	}
+	if (txn->db != impl->db) {
+		throw std::invalid_argument("Transaction does not belong to this database");
+	}
+
+	const char* insert_sql =
+		"INSERT INTO job (job_id, parent_job_id, frequency_map, start, finished, is_sentence) "
+		"VALUES (?, ?, ?, ?, ?, ?)";
+
+	sqlite3_stmt* stmt;
+	int rc = sqlite3_prepare_v2(txn->db, insert_sql, -1, &stmt, nullptr);
+	if (rc != SQLITE_OK) {
+		string error = "Failed to prepare insert statement: ";
+		error += sqlite3_errmsg(txn->db);
+		throw std::runtime_error(error);
+	}
+
+	for (int64_t i = 0; i < length; i++) {
+		Job& j = jobs[i];
+
+		// Bind parameters
+		sqlite3_bind_int64(stmt, 1, j.job_id);
+		sqlite3_bind_int64(stmt, 2, j.parent_job_id);
+		sqlite3_bind_blob(stmt, 3, j.frequency_map.asStdBytePointer(),
+						  NUM_LETTERS_IN_ALPHABET, SQLITE_STATIC);
+		sqlite3_bind_int(stmt, 4, j.start);
+		sqlite3_bind_int(stmt, 5, j.finished ? 1 : 0);
+		sqlite3_bind_int(stmt, 6, j.is_sentence ? 1 : 0);
+
+		// Execute
+		rc = sqlite3_step(stmt);
+		if (rc != SQLITE_DONE) {
+			string error = "Failed to insert job with ID: ";
+			error += sqlite3_errmsg(txn->db);
+			sqlite3_finalize(stmt);
+			throw std::runtime_error(error);
+		}
+
+		// Reset for next iteration
+		sqlite3_reset(stmt);
+	}
+
+	sqlite3_finalize(stmt);
+}
+
 void Database::finishJobs(job::Job* jobs, int64_t length) {
 	Txn txn(impl);
 	finishJobs(jobs, length, &txn);
 	txn.commit();
+}
+
+void Database::finishJobsOnSelfAndChildren(job::Job* jobs, int64_t length) {
+	if (length <= 0) {
+		return;
+	}
+	Txn* txn = beginTransaction();
+
+	finishJobs(jobs, length, txn);
+
+	for (auto child_db : impl->children) {
+		child_db->finishJobsOnSelfAndChildren(jobs, length);
+	}
+
+	commitTransaction(txn);
 }
 
 void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
@@ -434,6 +503,10 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
 	if (txn->db != impl->db) {
 		throw std::invalid_argument("Transaction does not belong to this database");
 	}
+
+	// for (auto child_db : impl->children) {
+	// 	child_db->finishJobs(jobs, length);
+	// }
 
 	const char* update_sql = "UPDATE job SET finished = 1 WHERE job_id = ?";
 
@@ -589,21 +662,16 @@ int64_t Database::getUnfinishedJobs(int64_t length, Job* buffer)
 	return out_count;
 }
 
-int64_t getJobCountSlow(Txn* txn);
+int64_t getJobCountSlow(Impl* impl);
+int64_t getUnfinishedJobCountSlow(Impl* impl);
 
-int64_t getJobCountEstimate(Txn* txn) {
-	// SQLite doesn't have the same statistics as PostgreSQL
-	// Just return the slow count
-	return getJobCountSlow(txn);
-}
-
-int64_t getJobCountSlow(Txn* txn) {
-	const char* count_sql = "SELECT COUNT(*) FROM job";
+int64_t getJobCountSlow(Impl* impl) {
+	const char* count_sql = "SELECT COUNT(*) FROM job WHERE job_id >= 0 AND start >= 0";
 	sqlite3_stmt* stmt;
-	int rc = sqlite3_prepare_v2(txn->db, count_sql, -1, &stmt, nullptr);
+	int rc = sqlite3_prepare_v2(impl->db, count_sql, -1, &stmt, nullptr);
 	if (rc != SQLITE_OK) {
 		string error = "Failed to prepare count statement: ";
-		error += sqlite3_errmsg(txn->db);
+		error += sqlite3_errmsg(impl->db);
 		throw std::runtime_error(error);
 	}
 
@@ -618,13 +686,13 @@ int64_t getJobCountSlow(Txn* txn) {
 	return count;
 }
 
-int64_t getUnfinishedJobCountSlow(Txn* txn) {
-	const char* count_sql = "SELECT COUNT(*) FROM job WHERE finished = 0";
+int64_t getUnfinishedJobCountSlow(Impl* impl) {
+	const char* count_sql = "SELECT COUNT(*) FROM job WHERE job_id >= 0 AND start >= 0 AND finished = 0";
 	sqlite3_stmt* stmt;
-	int rc = sqlite3_prepare_v2(txn->db, count_sql, -1, &stmt, nullptr);
+	int rc = sqlite3_prepare_v2(impl->db, count_sql, -1, &stmt, nullptr);
 	if (rc != SQLITE_OK) {
 		string error = "Failed to prepare count statement: ";
-		error += sqlite3_errmsg(txn->db);
+		error += sqlite3_errmsg(impl->db);
 		throw std::runtime_error(error);
 	}
 
@@ -639,15 +707,24 @@ int64_t getUnfinishedJobCountSlow(Txn* txn) {
 	return count;
 }
 
-void Database::printJobsStats()
+int64_t Database::printJobsStats()
 {
 	Txn txn(impl);
-	int64_t total_jobs = getJobCountSlow(&txn);
-	int64_t unfinished_jobs = getUnfinishedJobCountSlow(&txn);
+	int64_t total_jobs = getJobCountSlow(impl);
+	int64_t unfinished_jobs = getUnfinishedJobCountSlow(impl);
+	int64_t children_total_jobs = 0;
+	int64_t children_unfinished_jobs = 0;
+	for (auto child_db : impl->children) {
+		children_total_jobs += getJobCountSlow(child_db->impl);
+		children_unfinished_jobs += getUnfinishedJobCountSlow(child_db->impl);
+	}
+	total_jobs += children_total_jobs;
+	unfinished_jobs += children_unfinished_jobs;
 	cerr << "Database " << db_name << ": "
 		 << "Jobs stats: total_jobs=" << total_jobs
 		 << ", unfinished_jobs=" << unfinished_jobs << endl;
 	txn.commit();
+	return unfinished_jobs;
 }
 
 void Database::setJobIDIncrementStart(int64_t start)
@@ -718,6 +795,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		"SELECT job_id, parent_job_id, frequency_map, start, finished "
 		"FROM job "
 		"WHERE finished = 0 "
+		//"ORDER BY job_id ASC "
 		"LIMIT " + std::to_string(length);
 
 	#ifdef SQLITE_TEST

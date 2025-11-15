@@ -17,6 +17,36 @@ private:
 	int32_t id;
 
 public:
+	void loop() override
+	{
+		while (true) {
+			while (!ready_to_start) {
+				//std::this_thread::yield();
+				std::this_thread::sleep_for(std::chrono::microseconds(100));
+			}
+			ready_to_start = false;
+			finished = false;
+			//cerr << "Worker_CPU " << id << " starting doJobs(): ready_to_start=" << ready_to_start << " finished= " << finished << endl;
+			doJobs();
+			//cerr << "Worker_CPU " << id << " finished doJobs(), creating " << last_result.new_jobs.size() << " new jobs: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
+			auto txn = thread_db->beginTransaction();
+			//cerr << "Worker_CPU " << id << " finished beginTransaction: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
+			WriteResult(&last_result, dict, txn);
+			//cerr << "Worker_CPU " << id << " committed " << last_result.new_jobs.size() << " new jobs." << endl;
+			// thread_db.finishJobs(
+			// 	last_result.new_jobs.data(),
+			// 	last_result.new_jobs.size(),
+			// 	txn
+			// );
+
+			// update: workers finish their own input jobs (their input jobs only come from their own db)
+			finishJobs(txn);
+
+			thread_db->commitTransaction(txn);
+			finished = true;
+		}
+	}
+
 	void reset() override
 	{
 		Worker::reset();
@@ -40,11 +70,47 @@ public:
 		}
 		int64_t jobs_to_take = std::min((int64_t)numThreads(), max_length);
 		for (int64_t i = 0; i < jobs_to_take; i++) {
-			unfinished_jobs.push_back(buffer + i);
+			unfinished_jobs.push_back(buffer[i]);
 		}
 		return jobs_to_take;
 	}
+	int64_t takeJobsAndWrite(Job* buffer, int64_t max_length) override
+	{
+		finished = false;
+		if (max_length <= 0) {
+			throw;
+		}
+		int64_t jobs_to_take = std::min((int64_t)numThreads(), max_length);
+		for (int64_t i = 0; i < jobs_to_take; i++) {
+			unfinished_jobs.push_back(buffer[i]);
+		}
+		thread_db->insertJobsWithIDs(
+			buffer,
+			jobs_to_take
+		);
+		return jobs_to_take;
+	}
 
+	int64_t takeJobs(int64_t max_length) override
+	{
+		if (max_length <= 0) {
+			throw;
+		}
+
+		int64_t jobs_to_take = std::min((int64_t)numThreads(), max_length);
+
+		finished = false;
+
+		unfinished_jobs.reserve(unfinished_jobs.size() + jobs_to_take);
+
+		int64_t found = thread_db->getUnfinishedJobs(
+			jobs_to_take,
+			unfinished_jobs.data() + unfinished_jobs.size()
+		);
+
+		unfinished_jobs.resize(unfinished_jobs.size() + found);
+		return jobs_to_take;
+	}
 
 	void doJobs_async() override
 	{

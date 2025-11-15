@@ -23,6 +23,7 @@ namespace anagrammer {
 		bool spawned_workers = false;
 		void init();
 		void insertStartJob();
+		void insertStartJobs();
     public:
 		int64_t num_jobs_per_batch;
 

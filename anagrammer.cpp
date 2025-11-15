@@ -91,15 +91,29 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 	}
 
 	std::int64_t max_int64 = std::numeric_limits<std::int64_t>::max();
-	int64_t jobIDs_per_thread = max_int64 / num_available_threads;
+	int64_t num_threads_in_one_cpu_worker = workers[0]->numThreads();
+	int64_t jobIDs_per_thread = max_int64 / (num_available_threads + num_threads_in_one_cpu_worker * 2L);
+	int64_t current_start = num_threads_in_one_cpu_worker * jobIDs_per_thread;
+
 	for (int64_t i = 0; i < num_workers; i++) {
-		workers[i]->setJobIDIncrementStart(
-			jobIDs_per_thread * workers[i]->numThreads()
-		);
+		workers[i]->setJobIDIncrementStart(current_start);
+		cerr << "Worker " << i << ": start = " << current_start << ", ";
+		current_start += workers[i]->numThreads() * jobIDs_per_thread;
+		cerr << " end = " << current_start << endl;
+		if (current_start < 0) {
+			cerr << "Anagrammer::initWorkers: current_start overflowed" << endl;
+			throw;
+		}
+		if (max_int64 - current_start < workers[i]->numThreads() * jobIDs_per_thread) {
+			cerr << "Anagrammer::initWorkers: current_start will overflow on next increment" << endl;
+			throw;
+		}
 	}
 
 	fprintf(stderr, "Anagrammer::initWorkers: total available threads = %ld\n", num_available_threads);
 	spawned_workers = true;
+
+	insertStartJobs();
 }
 
 /**
@@ -117,10 +131,56 @@ void Anagrammer::init()
 
 void Anagrammer::insertStartJob()
 {
+	throw;
 	Job startJob = {};
     dict->copyInputFrequencyMap(&startJob.frequency_map);
     startJob.start = 0;
     database->writeJob(startJob);
+}
+
+void Anagrammer::insertStartJobs()
+{
+	shared_ptr<vector<Job>> initial_jobs
+		= dict->createInitialjobs(num_jobs_per_batch * 2);
+	vector<Job> tmp_finished = {};
+	tmp_finished.reserve(initial_jobs->size());
+	vector<Job> tmp_unfinished = {};
+	tmp_unfinished.reserve(initial_jobs->size());
+	for (int64_t i = 0; i < initial_jobs->size(); i++) {
+		if (initial_jobs->at(i).finished) {
+			tmp_finished.push_back(initial_jobs->at(i));
+		}
+		else {
+			tmp_unfinished.push_back(initial_jobs->at(i));
+		}
+	}
+	int64_t total_threads_available = 0;
+	for (int64_t i = 0; i < num_workers; i++) {
+		total_threads_available += workers[i]->numThreads();
+	}
+
+	// Initial start increment values have already been set in initWorkers
+
+	database->insertJobsWithIDs(tmp_finished.data(), tmp_finished.size());
+	int64_t num_taken = 0;
+	while (num_taken < tmp_unfinished.size()) {
+		bool taken_this_iteration = false;
+		for (int64_t i = 0; i < num_workers; i++) {
+			auto &worker = workers[i];
+			int64_t max_to_take = tmp_unfinished.size() - num_taken;
+			if (max_to_take <= 0) {
+				break;
+			}
+			int64_t taken = worker->takeJobsAndWrite(
+				tmp_unfinished.data() + num_taken,
+				max_to_take
+			);
+			if (taken > 0) {
+				num_taken += taken;
+				taken_this_iteration = true;
+			}
+		}
+	}
 }
 
 Anagrammer::Anagrammer(int64_t p_num_jobs_per_batch, string p_input)
@@ -167,7 +227,6 @@ void Anagrammer::run()
 		cerr << "Anagrammer::run called before Anagrammer::initWorkers" << endl;
 		throw;
 	}
-	insertStartJob();
 
 	iteration = 0;
 
@@ -175,17 +234,17 @@ void Anagrammer::run()
 		iteration++;
 		cerr << "Anagrammer iteration " << iteration << endl;
 
-		database->printJobsStats();
+		num_unfinished_jobs = database->printJobsStats();
 
-		cerr << "Getting unfinished jobs .." << endl;
+		// cerr << "Getting unfinished jobs .." << endl;
 
-		database::Txn* txn = database->beginTransaction();
-		int64_t num_unfinished_jobs
-			= database->getUnfinishedJobs(num_jobs_per_batch, unfinished_jobs, txn);
-		database->commitTransaction(txn);
-		database->printJobsStats();
+		// database::Txn* txn = database->beginTransaction();
+		// int64_t num_unfinished_jobs
+		// 	= database->getUnfinishedJobs(num_jobs_per_batch, unfinished_jobs, txn);
+		// database->commitTransaction(txn);
+		// database->printJobsStats();
 
-		cerr << "Got unfinished jobs from database" << endl;
+		// cerr << "Got unfinished jobs from database" << endl;
 
 		if (num_unfinished_jobs <= 0) {
 			cerr << "No unfinished jobs remaining, done." << endl;
@@ -219,10 +278,11 @@ void Anagrammer::run()
 #endif
 					break;
 				}
-				taken_jobs += workers[i]->takeJobs(
-					unfinished_jobs + taken_jobs,
-					max_jobs_to_take
-				);
+				// taken_jobs += workers[i]->takeJobs(
+				// 	unfinished_jobs + taken_jobs,
+				// 	max_jobs_to_take
+				// );
+				taken_jobs += workers[i]->takeJobs(max_jobs_to_take);
 				//fprintf(stderr, " Worker %ld took jobs, total taken now %ld/%ld\n", i, taken_jobs, num_unfinished_jobs);
 				taken_this_loop = true;
 				if (first_assignment_iteration) {

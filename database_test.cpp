@@ -33,7 +33,7 @@ int main()
 
 	cerr << "Created jobs" << endl;
 	cerr << "Writing jobs to database..." << std::endl;
-	mydb.writeJobs(buffer, 4);
+	mydb.writeNewJobsbuffer, 4);
 	cerr << "Written jobs to database." << std::endl;
 	cerr << "Reading unfinished jobs from database..." << std::endl;
 	job::Job* unfinished;

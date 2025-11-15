@@ -152,24 +152,24 @@ Database::Database()
 
 void Database::writeJob(job::Job job) {
 	Txn txn(impl);
-	writeJobs(&job, 1, &txn);
+	writeNewJobs(&job, 1, &txn);
 	txn.commit();
 }
 
 void Database::writeJob(job::Job job, Txn* txn) {
-	writeJobs(&job, 1, txn);
+	writeNewJobs(&job, 1, txn);
 }
 
-void Database::writeJobs(job::Job* jobs, int64_t length)
+void Database::writeNewJobsjob::Job* jobs, int64_t length)
 {
 	Txn txn(impl);
-	writeJobs(jobs, length, &txn);
+	writeNewJobs(jobs, length, &txn);
 	txn.commit();
 }
 
 
 
-void Database::writeJobs(job::Job* jobs, int64_t length, Txn* txn)
+void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
 	if (length <= 0) {
 		throw;

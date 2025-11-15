@@ -26,7 +26,7 @@ int main()
 		.is_sentence = false
 	};
 	db.setJobIDIncrementStart(2000);
-	db.writeJobs(&test1, 1);
+	db.writeNewJobs&test1, 1);
 	Job tmp[1024];
 	int64_t count = db.getUnfinishedJobs(1024, tmp);
 	cout << "Unfinished jobs count: " << count << endl;
@@ -58,7 +58,7 @@ int main()
 		.finished = false,
 		.is_sentence = false
 	};
-	child1.writeJobs(&test2, 1);
+	child1.writeNewJobs&test2, 1);
 	Job tmp2[1024];
 	int64_t count2 = child1.getUnfinishedJobs(1024, tmp2);
 	cout << "Child unfinished jobs count: " << count2 << endl;
@@ -84,21 +84,21 @@ int main()
 	for (int64_t i = 0; i < 1024; i++) {
 		tmp[i].job_id = 0;
 		tmp[i].parent_job_id = i;
-		tmp[i].start = i;
+		tmp[i].start = 1000 + i;
 		tmp[i].finished = false;
 		tmp[i].is_sentence = false;
 	}
 	for (int64_t i = 0; i < 1024; i++) {
 		tmp2[i].job_id = 0;
 		tmp2[i].parent_job_id = i + 10000;
-		tmp2[i].start = i + 10000;
+		tmp2[i].start = 2000 + i;
 		tmp2[i].finished = false;
 		tmp2[i].is_sentence = false;
 	}
 
 	Job* tmp_output = new Job[4096];
 	cout << "Small write test to parent: " << endl;
-	db.writeJobs(tmp, 1024);
+	db.writeNewJobstmp, 1024); // 2002 through 3025
 	int64_t count3 = db.getUnfinishedJobs(2048, tmp_output);
 	cout << "Unfinished jobs count after small write: " << count3 << endl;
 	if (count3 != 1026) {
@@ -106,7 +106,15 @@ int main()
 		return 1;
 	}
 
-	child1.writeJobs(tmp2, 1024);
+	for (int64_t i = 0; i < 1024; i++) {
+		tmp[i].start = 3000 + i;
+		tmp[i].parent_job_id = 3000 + i;
+		if (tmp[i].finished) {
+			cerr << "tmp[" << i << "] should not be finished!" << endl;
+			return 1;
+		}
+	}
+	child1.writeNewJobstmp, 1024);
 	cout << "Small write test to child: " << endl;
 	int64_t count4 = db.getUnfinishedJobs(4096, tmp_output);
 	cout << "Unfinished jobs count after child small write: " << count4 << endl;
@@ -133,18 +141,18 @@ int main()
 	tmp_output[2049].print();
 
 	int64_t large_input_count = 5974891L;
-	Job* large_input = new Job[large_input_count];
-	Job* large_output = new Job[large_input_count];
+	Job* large_input = new Job[large_input_count * 2L];
+	Job* large_output = new Job[large_input_count * 2L];
 	for (int64_t i = 0; i < large_input_count; i++) {
 		large_input[i].job_id = 0;
 		large_input[i].parent_job_id = i + 10000000L;
-		large_input[i].start = i + 10000000L;
+		large_input[i].start = 222;
 		large_input[i].finished = false;
 		large_input[i].is_sentence = false;
 	}
 	cout << "Large write test to child: " << endl;
 	auto start_time = std::chrono::high_resolution_clock::now();
-	child1.writeJobs(large_input, large_input_count);
+	child1.writeNewJobslarge_input, large_input_count);
 	auto end_time = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 	cout << "Wrote " << large_input_count << " jobs to child in " << duration << " ms" << endl;
@@ -161,6 +169,37 @@ int main()
 		cerr << "Expected " << expected_output_count << " unfinished jobs after child large write!" << endl;
 		return 1;
 	}
+
+	Job new_job_for_parent;
+	new_job_for_parent.parent_job_id = 12345678L;
+	new_job_for_parent.start = 12345678L;
+	new_job_for_parent.finished = false;
+	new_job_for_parent.is_sentence = false;
+	db.writeJob(new_job_for_parent);
+	string query = "select job_id from job where parent_job_id = 12345678 and start = 12345678;";
+	int64_t count6 = db.getUnfinishedJobs(expected_output_count + 1L, large_output);
+	if (count6 != expected_output_count + 1L) {
+		cerr << "Expected " << (expected_output_count + 1L) << " unfinished jobs after parent single write, but got " << count6 << endl;
+		return 1;
+	}
+	JobID_t expected_id = 3026;
+	db.getJob(expected_id).print();
+
+	start_time = std::chrono::high_resolution_clock::now();
+	db.finishJobsOnSelfAndChildren(large_output, count6);
+	end_time = std::chrono::high_resolution_clock::now();
+	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+	cout << "finishJobs " << count6 << " jobs in " << duration << " ms" << endl;
+	int64_t count7 = db.getUnfinishedJobs(large_input_count * 2L, large_output);
+	cout << "Unfinished jobs count after finishing all: " << count7 << endl;
+	if (count7 != 0) {
+		cerr << "Expected 0 unfinished jobs after finishing all!" << endl;
+		for (int64_t i = 0; i < count7; i++) {
+			large_output[i].print();
+		}
+		return 1;
+	}
+	cout << "All tests passed!" << endl;
 
 	return 0;
 }

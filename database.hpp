@@ -36,8 +36,13 @@ namespace database {
 		// Write job to db, where its ID will be created
 		void writeJob(job::Job);
 		void writeJob(job::Job, Txn* txn);
-		void writeJobs(job::Job* jobs, int64_t length);
-		void writeJobs(job::Job* jobs, int64_t length, Txn* txn);
+		void writeNewJobs(job::Job* jobs, int64_t length);
+		void writeNewJobs(job::Job* jobs, int64_t length, Txn* txn);
+		/**
+		 * Insert jobs that have already had an ID generated
+		 */
+		void insertJobsWithIDs(job::Job* jobs, int64_t length);
+		void insertJobsWithIDs(job::Job* jobs, int64_t length, Txn* txn);
 		/**
 		 * Input should have start=index of last word in sentence
 		 * Sentence will be found by traversing parent_job_id
@@ -48,12 +53,20 @@ namespace database {
 		job::Job getJob(JobID_t job_id, Txn* txn);
 		int64_t getUnfinishedJobs(int64_t length, job::Job* output);
 		int64_t getUnfinishedJobs(int64_t length, job::Job* output, Txn* txn);
+		int64_t getAndRemoveUnfinishedJobs(
+			int64_t length,
+			job::Job* output
+		);
 		// void finishJobs_startBuilding();
 		// void finishJobs_add(JobID_t job_id);
 		// void finishJobs_finishBuilding(Txn* txn);
 		void finishJobs(job::Job* jobs, int64_t length);
 		void finishJobs(job::Job* jobs, int64_t length, Txn* txn);
-		void printJobsStats();
+		void finishJobsOnSelfAndChildren(job::Job* jobs, int64_t length);
+		/**
+		 * Returns total unfinished jobs across self and children
+		 */
+		int64_t printJobsStats();
 		void printFoundSentence(
 			FrequencyMapIndex_t start,
 			JobID_t parent_id,

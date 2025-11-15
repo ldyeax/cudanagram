@@ -19,6 +19,7 @@ using std::vector;
 using std::string;
 using std::shared_ptr;
 using std::make_shared;
+using job::Job;
 
 #define FrequencyMapIndex_t int32_t
 
@@ -51,7 +52,7 @@ namespace dictionary {
 
 		void printStats();
 
-		int32_t createInitialjobs(job::Job* buffer);
+		shared_ptr<vector<Job>> createInitialjobs(int32_t count);
 
 		FrequencyMapIndex_t getOrCreateFrequencyMapIndexByWordIndex(
 			int32_t w_i

@@ -12,31 +12,6 @@ using database::Database;
 using database::Txn;
 using std::vector;
 
-void Worker::loop()
-{
-	while (true) {
-		while (!ready_to_start) {
-			//std::this_thread::yield();
-			std::this_thread::sleep_for(std::chrono::microseconds(100));
-		}
-		ready_to_start = false;
-		finished = false;
-		//cerr << "Worker_CPU " << id << " starting doJobs(): ready_to_start=" << ready_to_start << " finished= " << finished << endl;
-		doJobs();
-		//cerr << "Worker_CPU " << id << " finished doJobs(), creating " << last_result.new_jobs.size() << " new jobs: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
-		auto txn = thread_db->beginTransaction();
-		//cerr << "Worker_CPU " << id << " finished beginTransaction: ready_to_start=" << ready_to_start << " finished= " << finished << endl;
-		WriteResult(&last_result, dict, txn);
-		//cerr << "Worker_CPU " << id << " committed " << last_result.new_jobs.size() << " new jobs." << endl;
-		// thread_db.finishJobs(
-		// 	last_result.new_jobs.data(),
-		// 	last_result.new_jobs.size(),
-		// 	txn
-		// );
-		thread_db->commitTransaction(txn);
-		finished = true;
-	}
-}
 
 Worker::Worker(database::Database* p_db, dictionary::Dictionary* p_dict)
 {
@@ -62,7 +37,7 @@ void Worker::WriteResult(Result* result, dictionary::Dictionary* dict, Txn* txn)
 	// fprintf(stderr, "result->new_jobs.size() = %ld\n", result->new_jobs.size());
 	// fprintf(stderr, "result->new_jobs.data() = %p\n", (void*)result->new_jobs.data());
 	if (result->new_jobs.size() > 0) {
-		thread_db->writeJobs(
+		thread_db->writeNewJobs(
 			result->new_jobs.data(),
 			result->new_jobs.size(),
 			txn
@@ -72,14 +47,33 @@ void Worker::WriteResult(Result* result, dictionary::Dictionary* dict, Txn* txn)
 
 void Worker::doJobs()
 {
-	last_result.new_jobs.clear();
 	last_result.new_jobs.reserve(unfinished_jobs.size() * 100); // Reserve space for efficiency
+	last_result.new_jobs.clear();
 	for (int32_t i = 0; i < unfinished_jobs.size(); i++) {
-		doJob(unfinished_jobs[i], 1);
+		doJob(&unfinished_jobs[i], 1);
 	}
 }
 
 void Worker::doJobs_async() {
 	finished = false;
 	ready_to_start = true;
+}
+
+void Worker::finishJobs() {
+	thread_db->finishJobs(
+		last_result.new_jobs.data(),
+		last_result.new_jobs.size()
+	);
+}
+
+void Worker::finishJobs(Txn* txn) {
+	thread_db->finishJobs(
+		last_result.new_jobs.data(),
+		last_result.new_jobs.size(),
+		txn
+	);
+}
+
+void Worker::finishJobs_async() {
+	// Implementation for asynchronous finishJobs can be added here
 }
