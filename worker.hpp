@@ -15,24 +15,59 @@ using database::Database;
 using database::Txn;
 using std::vector;
 using dictionary::Dictionary;
+using std::atomic;
 
 namespace worker {
+	enum WorkerStatus {
+		uninitialized,
+		spawning,
+		running,
+		ended
+	};
 	class Worker {
+	private:
+		int64_t start_id;
+		/**
+		 * Our own buffer copy of unfinished jobs to process,
+		 *  either copied from the initial seeding
+		 *  or fetched from our own database in later iterations
+		 **/
+		Job* unfinished_jobs;
+		int64_t num_unfinished_jobs;
 	public:
-		std::atomic<int32_t> id;
-
-		Worker(Job* p_start_jobs, int64_t p_n_start_jobs) {
-
-		}
-
-
-		Job* volatile start_jobs;
-		std::atomic<int64_t> num_start_jobs;
-
-		void loop()
+		virtual int64_t getBufferSize()
 		{
-
+			return 65535L;
 		}
+		volatile WorkerStatus worker_status = uninitialized;
+		char* volatile database_name;
+		void innerLoop()
+		{
+			while (num_unfinished_jobs > 0) {
+				getJobsFromDatabase();
+				if (num_unfinished_jobs <= 0) {
+					break;
+				}
+				doJobs();
+			}
+		}
+		Worker(
+			/**
+			 * Jobs will be created starting with this ID,
+			 *  though the initial jobs given may have (
+			 *   almost certainly will have) lower IDs
+			 **/
+			int64_t p_start_id,
+
+			Job* p_initial_jobs,
+			int64_t p_num_initial_jobs
+		) 
+		{
+			start_id = p_start_id;
+			unfinished_jobs = new Job[getBufferSize()];
+			num_unfinished_jobs = p_num_initial_jobs;
+		}
+
 	};
 	class WorkerFactory {
 	public:
