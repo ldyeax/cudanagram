@@ -19,11 +19,7 @@ using worker::WorkerFactory;
 namespace anagrammer {
     class Anagrammer {
 	private:
-		bool done_init = false;
-		bool spawned_workers = false;
-		void init();
-		void insertStartJob();
-		void insertStartJobs();
+
     public:
 		int64_t num_jobs_per_batch;
 
@@ -33,23 +29,12 @@ namespace anagrammer {
         Dictionary* dict;
         Database* database;
         string input;
-        Job* unfinished_jobs;
-
-		int64_t num_available_threads;
 		Worker** workers;
-		int64_t num_workers;
-		int64_t num_unfinished_jobs;
-		int64_t iteration;
 		vector<WorkerFactory> worker_factories;
 
         Anagrammer(int64_t p_num_jobs_per_batch, string p_input);
         Anagrammer(int64_t p_num_jobs_per_batch, string p_input, Dictionary* p_dict);
 		Anagrammer(int64_t p_num_jobs_per_batch, string p_input, string p_dict_filename);
-		void initWorkers(bool p_cpu, bool p_gpu);
-        void run();
-		void printFoundSentences();
-		// Print the dictionary after rejection passes included frequency map
-		void printDict();
-		void waitForWorkersToFinish();
+
     };
 }
