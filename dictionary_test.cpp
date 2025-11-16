@@ -9,6 +9,8 @@
 #include <vector>
 #include <iostream>
 #include <cassert>
+#include "job.hpp"
+
 
 using namespace std;
 int main()
@@ -34,11 +36,27 @@ int main()
 	cerr << "Frequency maps length: " << d.frequency_maps_length << endl;
 	cerr << "Passed" << endl;
 
+	char test_buffer_2[] = "helloworld\0hello\0\0world\0\0\0worl\nwor\r\nldhe\0a\xee" "b\0llo\0";
 	d = dictionary::Dictionary(
-		"twomilkmengocomedy",
-		"dictionary.txt",
+		"helloworld",
 		NULL,
-		-1
+		test_buffer_2,
+		sizeof(test_buffer_2)
 	);
-	d.printStats();
+	auto v = d.createInitialjobs(3);
+	cerr << "Created " << v->size() << " initial jobs" << endl;
+	for (int64_t i = 0; i < v->size(); i++) {
+		cerr << "Job " << v->at(i).job_id << ": parent_job_id=" << v->at(i).parent_job_id
+			 << " start=" << v->at(i).start
+			 << " finished=" << v->at(i).finished << " is_sentence=" << v->at(i).is_sentence
+			 << endl;
+	}
+
+	// d = dictionary::Dictionary(
+	// 	"twomilkmengocomedy",
+	// 	"dictionary.txt",
+	// 	NULL,
+	// 	-1
+	// );
+	// d.printStats();
 }

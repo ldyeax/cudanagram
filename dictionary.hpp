@@ -52,7 +52,7 @@ namespace dictionary {
 
 		void printStats();
 
-		shared_ptr<vector<Job>> createInitialjobs(int32_t count);
+		shared_ptr<vector<Job>> createInitialjobs(int64_t count);
 
 		FrequencyMapIndex_t getOrCreateFrequencyMapIndexByWordIndex(
 			int32_t w_i
@@ -81,6 +81,7 @@ namespace dictionary {
 		);
 
 		void printWordsAt(FrequencyMapIndex_t fm_index);
+		void printWordsAt(FrequencyMapIndex_t fm_index, int32_t depth);
 		void printDict();
 	};
 

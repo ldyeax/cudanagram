@@ -36,14 +36,14 @@ namespace job {
 			frequency_map.print();
 			//std::cerr << " start=" << start << " parent_frequency_mapIndex=" << parent_frequency_map_index << " finished=" << finished << endl;
 			//fprintf(stderr, " start=%d parent_frequency_map_index=%d finished=%d\n", start, parent_frequency_map_index, finished);
-			fprintf(stderr, " start=%d finished=%d\n", start, finished);
+			fprintf(stderr, " start=%d finished=%d is_sentence=%d\n", start, finished, is_sentence);
 		}
 
 		__device__ void d_print()
 		{
 			printf("Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
 			frequency_map.d_print();
-			printf(" start=%d finished=%d\n", start, finished);
+			printf(" start=%d finished=%d is_sentence=%d\n", start, finished, is_sentence);
 		}
 	};
 }

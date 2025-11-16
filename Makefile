@@ -3,8 +3,10 @@ PQXX_INC    := $(PQXX_PREFIX)/include
 PQXX_LIB    := $(PQXX_PREFIX)/lib
 
 GPP = g++
-GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations
-GPP_LDFLAGS = -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq -lncurses -ltinfo -lsqlite3
+#GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
+GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++17 -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
+#GPP_LDFLAGS = -L$(PQXX_LIB) -Wl,-rpath,$(PQXX_LIB) -lpqxx -lpq -lncurses -ltinfo -lsqlite3
+GPP_LDFLAGS = -lsqlite3
 
 TEST_DICTIONARY = dictionary_test
 TEST_DICTIONARY_O = dictionary_test.o
@@ -20,8 +22,10 @@ DB_O = database.o
 LSQLITE3 = -lsqlite3
 
 NVCC = nvcc
-NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math
-LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx -lsqlite3
+#NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Wno-unused-result
+NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Wno-unused-result
+#LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx -lsqlite3
+LDFLAGS = -ltinfo  -lsqlite3
 
 TARGET = cudanagram
 SRC = cudanagram.cu
@@ -44,35 +48,68 @@ FM_CPP = frequency_map.cpp
 FM_O = frequency_map.o
 DICTIONARY_O = dictionary.o
 
+#GPP_DEBUG_FLAGS = -g -O0 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
+GPP_DEBUG_FLAGS = -g -O0 -rdynamic -march=native -mavx2 -mfma -std=c++17 -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
+
 ifdef TEST_WORKER_GPU
     GPP_FLAGS  += -DTEST_WORKER_GPU
+	GPP_DEBUG_FLAGS  += -DTEST_WORKER_GPU
     NVCC_CFLAGS += -DTEST_WORKER_GPU
 endif
 
 ifdef TEST_ANAGRAMMER
 	GPP_FLAGS  += -DTEST_ANAGRAMMER
+	GPP_DEBUG_FLAGS  += -DTEST_ANAGRAMMER
 	NVCC_CFLAGS += -DTEST_ANAGRAMMER
 endif
 
 ifdef CUDANAGRAM_PSQL
 	GPP_FLAGS  += -DCUDANAGRAM_PSQL
+	GPP_DEBUG_FLAGS  += -DCUDANAGRAM_PSQL
 	NVCC_CFLAGS += -DCUDANAGRAM_PSQL
 endif
 ifdef CUDANAGRAM_SQLITE
 	GPP_FLAGS  += -DCUDANAGRAM_SQLITE
+	GPP_DEBUG_FLAGS  += -DCUDANAGRAM_SQLITE
 	NVCC_CFLAGS += -DCUDANAGRAM_SQLITE
 endif
 
 ifdef CUDANAGRAM_THREADS_PER_CPU_WORKER
 	GPP_FLAGS  += -DCUDANAGRAM_THREADS_PER_CPU_WORKER=$(CUDANAGRAM_THREADS_PER_CPU_WORKER)
+	GPP_DEBUG_FLAGS  += -DCUDANAGRAM_THREADS_PER_CPU_WORKER=$(CUDANAGRAM_THREADS_PER_CPU_WORKER)
 	NVCC_CFLAGS += -DCUDANAGRAM_THREADS_PER_CPU_WORKER=$(CUDANAGRAM_THREADS_PER_CPU_WORKER)
 endif
 
 ifdef SQLITE_TEST
 	GPP_FLAGS  += -DSQLITE_TEST
+	GPP_DEBUG_FLAGS  += -DSQLITE_TEST
 	NVCC_CFLAGS += -DSQLITE_TEST
 endif
 
+ifdef CUDANAGRAM_TESTING
+	GPP_FLAGS  += -DCUDANAGRAM_TESTING
+	GPP_DEBUG_FLAGS  += -DCUDANAGRAM_TESTING
+	NVCC_CFLAGS += -DCUDANAGRAM_TESTING
+endif
+
+ifdef DICTIONARY_DEBUG
+	GPP_FLAGS  += -DDICTIONARY_DEBUG
+	GPP_DEBUG_FLAGS  += -DDICTIONARY_DEBUG
+	NVCC_CFLAGS += -DDICTIONARY_DEBUG
+endif
+
+
+ifdef CUDANAGRAM_NUM_CPU_WORKERS
+	GPP_FLAGS  += -DCUDANAGRAM_NUM_CPU_WORKERS=$(CUDANAGRAM_NUM_CPU_WORKERS)
+	GPP_DEBUG_FLAGS  += -DCUDANAGRAM_NUM_CPU_WORKERS=$(CUDANAGRAM_NUM_CPU_WORKERS)
+	NVCC_CFLAGS += -DCUDANAGRAM_NUM_CPU_WORKERS=$(CUDANAGRAM_NUM_CPU_WORKERS)
+endif
+
+ifdef DEBUG_WORKER_CPU
+	GPP_FLAGS  += -DDEBUG_WORKER_CPU
+	GPP_DEBUG_FLAGS  += -DDEBUG_WORKER_CPU
+	NVCC_CFLAGS += -DDEBUG_WORKER_CPU
+endif
 
 all: $(TARGET)
 
@@ -126,16 +163,36 @@ dictionary_test:
 		$(GPP_LDFLAGS) \
 		-DDICTIONARY_DEBUG
 
+# worker_cpu_test:
+# 	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
+# 	$(GPP) $(GPP_FLAGS) -c $(DB_SRC)
+# 	$(GPP) $(GPP_FLAGS) -c worker_cpu.cpp
+# 	$(GPP) $(GPP_FLAGS) -c worker_gpu.cpp
+# 	$(GPP) $(GPP_FLAGS) \
+# 		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
+# 		-o worker_cpu_test \
+# 		anagrammer.cpp worker.cpp worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
+# 		$(GPP_LDFLAGS)
 worker_cpu_test:
-	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
-	$(GPP) $(GPP_FLAGS) -c $(DB_SRC)
-	$(GPP) $(GPP_FLAGS) -c worker_cpu.cpp
-	$(GPP) $(GPP_FLAGS) -c worker_gpu.cpp
-	$(GPP) $(GPP_FLAGS) \
+	$(GPP) $(GPP_DEBUG_FLAGS) -c $(AVX_SRC)
+	$(GPP) $(GPP_DEBUG_FLAGS) -c $(DB_SRC)
+	$(GPP) $(GPP_DEBUG_FLAGS) -c worker_cpu.cpp
+	$(GPP) $(GPP_DEBUG_FLAGS) -c worker_gpu.cpp
+	$(GPP) $(GPP_DEBUG_FLAGS) \
 		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
 		-o worker_cpu_test \
 		anagrammer.cpp worker.cpp worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
 		$(GPP_LDFLAGS)
+# worker_cpu_test_2:
+# 	$(GPP) $(GPP_DEBUG_FLAGS) -c $(AVX_SRC)
+# 	$(GPP) $(GPP_DEBUG_FLAGS) -c $(DB_SRC)
+# 	$(GPP) $(GPP_DEBUG_FLAGS) -c worker_cpu.cpp
+# 	$(GPP) $(GPP_DEBUG_FLAGS) -c worker_gpu.cpp
+# 	$(GPP) $(GPP_DEBUG_FLAGS) \
+# 		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
+# 		-o worker_cpu_test \
+# 		anagrammer.cpp worker.cpp worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
+# 		$(GPP_LDFLAGS)
 
 sqlite_test:
 	$(GPP) $(GPP_FLAGS) \

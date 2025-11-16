@@ -22,23 +22,29 @@ namespace worker {
     };
     class Worker {
 	public:
+		std::atomic<int32_t> id;
+
+		std::atomic<bool> terminated{false};
+		std::atomic<bool> judgement_day{false};
+		virtual void terminate();
+
 		std::atomic<bool> ready_to_start{false};
+		std::atomic<int64_t> async_jobs_to_take = 0;
+		std::atomic<int64_t> async_jobs_taken = 0;
+		std::atomic<bool> ready_to_take_jobs{false};
+		std::atomic<bool> finished_taking_jobs{false};
 		virtual void doJobs();
 		virtual void loop() = 0;
 		virtual void doJob(job::Job* input, int64_t count) = 0;
-		vector<Job> unfinished_jobs;
+		std::atomic<vector<Job>*> unfinished_jobs = new vector<Job>();
 
-        Result last_result = {};
+        std::atomic<Result*> last_result = new Result();
         Worker(database::Database* db, dictionary::Dictionary* dict);
-		database::Database* thread_db = nullptr;
-        dictionary::Dictionary* dict = nullptr;
+		std::atomic<database::Database*> thread_db = nullptr;
+		Database* main_thread_db = nullptr;
+        std::atomic<dictionary::Dictionary*> dict = nullptr;
         std::atomic<bool> finished{false};
-		virtual void reset()
-		{
-			finished = false;
-			ready_to_start = false;
-			last_result.new_jobs.clear();
-		}
+		void reset();
         /**
          * Takes up to max_length jobs from the buffer, returns number of jobs taken.
 		 * Call multiple times to keep giving jobs for the next round -
@@ -46,7 +52,7 @@ namespace worker {
 		 *  the thing to do is to keep looping over the workers and giving them jobs
 		 *  before starting the processing batch
          **/
-        virtual int64_t takeJobs(Job* buffer, int64_t max_length) = 0;
+        virtual int64_t takeJobs(Job* buffer, int64_t max_length);
         /**
          * Takes up to max_length jobs from the buffer,
 		 *  writes the jobs to its own database,
@@ -56,7 +62,7 @@ namespace worker {
 		 *  the thing to do is to keep looping over the workers and giving them jobs
 		 *  before starting the processing batch
          **/
-        virtual int64_t takeJobsAndWrite(Job* buffer, int64_t max_length) = 0;
+        virtual int64_t takeJobsAndWrite(Job* buffer, int64_t max_length);
 		/**
 		 * Take up to max_length jobs from own child database, returns number of jobs taken
 		 * Call multiple times to keep giving jobs for the next round -
@@ -64,13 +70,13 @@ namespace worker {
 		 * the thing to do is to keep looping over the workers and giving them jobs
 		 * before starting the processing batch
 		 **/
-		virtual int64_t takeJobs(int64_t max_length) = 0;
+		virtual int64_t takeJobs(int64_t max_length);
         virtual void doJobs_async();
         virtual int32_t numThreads() = 0;
-        void WriteResult(Result* result, dictionary::Dictionary* dict, database::Txn* txn);
+        void WriteResult(Result* result, Dictionary* dict, database::Txn* txn);
 		void setJobIDIncrementStart(int64_t start)
 		{
-			thread_db->setJobIDIncrementStart(start);
+			thread_db.load()->setJobIDIncrementStart(start);
 		}
 		void finishJobs();
 		void finishJobs(database::Txn* txn);

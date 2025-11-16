@@ -58,3 +58,7 @@
 #define INCOMPLETE_MATCH frequency_map::incomplete_match
 #define COMPLETE_MATCH frequency_map::complete_match
 #define MAX_DICTIONARY_BUFFER 1024*1024*8
+
+#include <mutex>
+#include <atomic>
+extern std::mutex global_print_mutex;

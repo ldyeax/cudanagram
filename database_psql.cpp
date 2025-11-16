@@ -126,7 +126,7 @@ void Database::create_db()
 	tmp += " -f setup.sql";
 	cerr << "Executing command: " << tmp << endl;
 	if (system(tmp.c_str())) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	cerr << "Created new db" << endl;
 }
@@ -172,7 +172,7 @@ void Database::writeNewJobsjob::Job* jobs, int64_t length)
 void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
 	if (length <= 0) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	{
 		pqxx::table_path job_table_path({"job"});
@@ -281,7 +281,7 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
 	// stub for psql
     // if (length <= 0)
 	// {
-	// 	throw;
+	// 	throw new std::runtime_error("unspecified");
 	// }
 
     // std::vector<JobID_t> ids;
@@ -312,7 +312,7 @@ void Database::printFoundSentence(
 			"SELECT parent_job_id, start FROM job WHERE job_id = " + std::to_string(parent_id)
 		);
 		if (res.size() != 1) {
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		JobID_t next_parent_id = res[0]["parent_job_id"].as<JobID_t>();
 		FrequencyMapIndex_t next_start = res[0]["start"].as<FrequencyMapIndex_t>();
@@ -423,7 +423,7 @@ void Database::printJobsStats()
 int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 {
 	if (length <= 0) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 
 	fprintf(stderr, "Found %ld jobs, of which %ld are unfinished\n",
@@ -492,7 +492,7 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 	pqxx::result res = txn->txn->exec(query);
 	int32_t out_count = res.size();
 	if (out_count != 1) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	job::Job ret;
 	auto row = res[0];

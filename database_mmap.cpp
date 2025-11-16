@@ -150,7 +150,7 @@ void Database::writeNewJobsjob::Job* jobs, int64_t length)
 void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
 	if (length <= 0) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 
 	std::lock_guard<std::mutex> lock(impl->map_mutex);
@@ -174,7 +174,7 @@ void Database::finishJobs(job::Job* jobs, int64_t length) {
 void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
     if (length <= 0)
 	{
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 
 	std::lock_guard<std::mutex> lock(impl->map_mutex);
@@ -187,7 +187,7 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
 			//cerr << "Finished job " << id << ": impl->jobs_map.find(id).second.finished = " << impl->jobs_map.find(id)->second.finished << endl;
 		}
 		else {
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 	}
 }
@@ -207,7 +207,7 @@ void Database::printFoundSentence(
 		indices->push_back(start);
 		auto it = impl->jobs_map.find(parent_id);
 		if (it == impl->jobs_map.end()) {
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		JobID_t next_parent_id = it->second.parent_job_id;
 		FrequencyMapIndex_t next_start = it->second.start;
@@ -289,7 +289,7 @@ void Database::printJobsStats()
 int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 {
 	if (length <= 0) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 
 	fprintf(stderr, "Found %ld jobs, of which %ld are unfinished\n",

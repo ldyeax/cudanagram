@@ -44,7 +44,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 {
 	if (!done_init) {
 		cerr << "Anagrammer::initWorkers called before Anagrammer::init" << endl;
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	num_workers = 0;
 	if (p_cpu) {
@@ -52,7 +52,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 			= worker::getWorkerFactory_CPU(database, dict);
 		if (cpu_factory == nullptr) {
 			cerr << "Anagrammer::initWorkers: CPU factory is null" << endl;
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		num_cpu_workers = cpu_factory->Spawn(
 			workers,
@@ -69,7 +69,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 			= worker::getWorkerFactory_GPU(database, dict);
 		if (gpu_factory == nullptr) {
 			cerr << "Anagrammer::initWorkers: GPU factory is null" << endl;
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		num_gpu_workers = gpu_factory->Spawn(
 			workers + num_workers,
@@ -83,7 +83,7 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 	}
 	if (num_workers <= 0) {
 		cerr << "Anagrammer::initWorkers: no workers spawned" << endl;
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	num_available_threads = 0;
 	for (int64_t i = 0; i < num_workers; i++) {
@@ -102,11 +102,11 @@ void Anagrammer::initWorkers(bool p_cpu, bool p_gpu)
 		cerr << " end = " << current_start << endl;
 		if (current_start < 0) {
 			cerr << "Anagrammer::initWorkers: current_start overflowed" << endl;
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		if (max_int64 - current_start < workers[i]->numThreads() * jobIDs_per_thread) {
 			cerr << "Anagrammer::initWorkers: current_start will overflow on next increment" << endl;
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 	}
 
@@ -131,7 +131,7 @@ void Anagrammer::init()
 
 void Anagrammer::insertStartJob()
 {
-	throw;
+	throw new std::runtime_error("unspecified");
 	Job startJob = {};
     dict->copyInputFrequencyMap(&startJob.frequency_map);
     startJob.start = 0;
@@ -142,6 +142,8 @@ void Anagrammer::insertStartJobs()
 {
 	shared_ptr<vector<Job>> initial_jobs
 		= dict->createInitialjobs(num_jobs_per_batch * 2);
+	cerr << "Trying to create " << num_jobs_per_batch * 2 << " initial jobs, got "
+		 << initial_jobs->size() << " jobs" << endl;
 	vector<Job> tmp_finished = {};
 	tmp_finished.reserve(initial_jobs->size());
 	vector<Job> tmp_unfinished = {};
@@ -151,6 +153,14 @@ void Anagrammer::insertStartJobs()
 			tmp_finished.push_back(initial_jobs->at(i));
 		}
 		else {
+			if (initial_jobs->at(i).frequency_map.isAllZero()) {
+				cerr << "Initial job " << i << " has all-zero frequency map" << endl;
+				throw new std::runtime_error("unspecified");
+			}
+			if (initial_jobs->at(i).frequency_map.anyNegative()) {
+				cerr << "Initial job " << i << " has negative frequency map value" << endl;
+				throw new std::runtime_error("unspecified");
+			}
 			tmp_unfinished.push_back(initial_jobs->at(i));
 		}
 	}
@@ -161,7 +171,22 @@ void Anagrammer::insertStartJobs()
 
 	// Initial start increment values have already been set in initWorkers
 
+	int64_t num_to_insert = tmp_unfinished.size();
+	cerr << "Inserting " << tmp_finished.size() << " finished initial jobs and "
+		 << num_to_insert << " unfinished initial jobs into database" << endl;
+
+	if (tmp_finished.size() <= 0) {
+		cerr << "No finished initial jobs to insert" << endl;
+		throw new std::runtime_error("unspecified");
+	}
 	database->insertJobsWithIDs(tmp_finished.data(), tmp_finished.size());
+
+	if (tmp_unfinished.size() <= 0) {
+		cerr << "No unfinished initial jobs to insert" << endl;
+		return ;
+	}
+
+
 	int64_t num_taken = 0;
 	while (num_taken < tmp_unfinished.size()) {
 		bool taken_this_iteration = false;
@@ -175,6 +200,8 @@ void Anagrammer::insertStartJobs()
 				tmp_unfinished.data() + num_taken,
 				max_to_take
 			);
+			printf("Gave %d initial jobs to worker %ld, it took %ld jobs\n",
+				(int32_t)max_to_take, i, taken);
 			if (taken > 0) {
 				num_taken += taken;
 				taken_this_iteration = true;
@@ -217,140 +244,209 @@ Anagrammer::Anagrammer(int64_t p_num_jobs_per_batch, string p_input, string p_di
 	init();
 }
 
+void Anagrammer::waitForWorkersToFinish()
+{
+	bool all_finished = false;
+	bool all_cpu_finished = false;
+	bool all_gpu_finished = (num_workers <= num_cpu_workers);
+	// cerr << "all_finished=" << all_finished
+	// 	 << " all_cpu_finished=" << all_cpu_finished
+	// 	 << " all_gpu_finished=" << all_gpu_finished << " (true if num_workers <= num_cpu_workers i.e. " << num_workers << " < " << num_cpu_workers << ")" << endl;
+	while (!all_finished) {
+		// cout << "Enter to continue while (!all_finished)" << endl;
+		// std::cin >> dummy;
+		bool tmp_all_cpu_finished = true;
+		bool tmp_all_gpu_finished = num_workers <= num_cpu_workers;
+		bool any_unfinished = false;
+		int64_t total_jobs_taken_tmp = 0;
+		for (int64_t i = 0; i < num_workers; i++) {
+			if (workers[i]->async_jobs_taken <= 0) {
+				#ifdef CUDANAGRAM_TESTING
+				{
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Worker " << workers[i]->id << " had no jobs taken, skipping finished check." << endl;
+				}
+				#endif
+				continue;
+			}
+			total_jobs_taken_tmp += workers[i]->async_jobs_taken.load();
+			//if (i < 4 || i >= num_cpu_workers) cerr << i << "=" << workers[i]->finished.load() << " ";
+			if (!workers[i]->finished) {
+				if (i < num_cpu_workers) {
+					tmp_all_cpu_finished = false;
+				}
+				else {
+					tmp_all_gpu_finished = false;
+				}
+				any_unfinished = true;
+				//cerr << "Worker " << workers[i]->id << " not finished yet. "<< endl;
+			}
+		}
+		if (!any_unfinished) {
+			all_finished = true;
+			{
+				std::lock_guard<std::mutex> lock(global_print_mutex);
+				cerr << "No unfinished workers found" << endl;
+			}
+			if (total_jobs_taken_tmp <= 0) {
+				{
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "No jobs were taken by any worker" << endl;
+				}
+				return;
+			}
+			return;
+		}
+		//cerr << endl;
+		if (tmp_all_cpu_finished && !all_cpu_finished) {
+			{
+				std::lock_guard<std::mutex> lock(global_print_mutex);
+				cerr << "Finished all CPU workers" << endl;
+			}
+			all_cpu_finished = true;
+		}
+		if (tmp_all_gpu_finished && !all_gpu_finished) {
+			{
+				std::lock_guard<std::mutex> lock(global_print_mutex);
+				cerr << "Finished all GPU workers" << endl;
+			}
+			all_gpu_finished = true;
+		}
+		all_finished = all_cpu_finished && all_gpu_finished;
+		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		//std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+}
+
 void Anagrammer::run()
 {
 	if (!done_init) {
 		cerr << "Anagrammer::run called before Anagrammer::init" << endl;
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	if (!spawned_workers) {
 		cerr << "Anagrammer::run called before Anagrammer::initWorkers" << endl;
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 
 	iteration = 0;
-
+	string dummy;
 	while (true) {
+		// std::cin >> dummy;
+		// cout << "Enter to start Anagrammer iteration " << (iteration + 1) << endl;
 		iteration++;
-		cerr << "Anagrammer iteration " << iteration << endl;
-
-		num_unfinished_jobs = database->printJobsStats();
-
-		// cerr << "Getting unfinished jobs .." << endl;
-
-		// database::Txn* txn = database->beginTransaction();
-		// int64_t num_unfinished_jobs
-		// 	= database->getUnfinishedJobs(num_jobs_per_batch, unfinished_jobs, txn);
-		// database->commitTransaction(txn);
-		// database->printJobsStats();
-
-		// cerr << "Got unfinished jobs from database" << endl;
-
-		if (num_unfinished_jobs <= 0) {
-			cerr << "No unfinished jobs remaining, done." << endl;
-			break;
+		{
+			std::lock_guard<std::mutex> lock(global_print_mutex);
+			cerr << "Anagrammer iteration " << iteration << endl;
 		}
-		cerr << "Unfinished jobs remaining: " << num_unfinished_jobs << endl;
+
+		// {
+		// 	std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 	num_unfinished_jobs = database->printJobsStats();
+		// }
+
+		// if (num_unfinished_jobs <= 0) {
+		// 	{
+		// 		std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 		cerr << "No unfinished jobs remaining, done." << endl;
+		// 	}
+		// 	break;
+		// }
+		// {
+		// 	std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 	cerr << "Unfinished jobs remaining: " << num_unfinished_jobs << endl;
+		// }
 
 		for (int64_t i = 0; i < num_workers; i++) {
 			workers[i]->reset();
 		}
 
-		cerr << "Reset all workers" << endl;
+		{
+			std::lock_guard<std::mutex> lock(global_print_mutex);
+			cerr << "Reset all workers (num_workers = " << num_workers << ")" << endl;
+		}
 
 		int64_t taken_jobs = 0;
-		// If there are 16 workers and 1024 jobs, each worker gets 1024/16 jobs
-		int64_t workers_assigned = 0;
-		bool first_assignment_iteration = true;
-		while (taken_jobs < num_unfinished_jobs) {
-#ifdef TEST_ANAGRAMMER
-			fprintf(stderr, " Assigning jobs: taken %ld/%ld\n", taken_jobs, num_unfinished_jobs);
-#endif
-			bool taken_this_loop = false;
-			for (int64_t i = 0; i < num_workers; i++) {
-#ifdef TEST_ANAGRAMMER
-				fprintf(stderr, "i=%ld ", i);
-#endif
-				int64_t max_jobs_to_take = num_unfinished_jobs - taken_jobs;
-				if (max_jobs_to_take <= 0) {
-#ifdef TEST_ANAGRAMMER
-					fprintf(stderr, " All jobs taken\n");
-#endif
-					break;
-				}
-				// taken_jobs += workers[i]->takeJobs(
-				// 	unfinished_jobs + taken_jobs,
-				// 	max_jobs_to_take
-				// );
-				taken_jobs += workers[i]->takeJobs(max_jobs_to_take);
-				//fprintf(stderr, " Worker %ld took jobs, total taken now %ld/%ld\n", i, taken_jobs, num_unfinished_jobs);
-				taken_this_loop = true;
-				if (first_assignment_iteration) {
-					workers_assigned++;
-				}
-			}
-			first_assignment_iteration = false;
-			if (!taken_this_loop) {
-				cerr << " No jobs taken in loop " << endl;
-				return;
-			}
-#if defined(TEST_ANAGRAMMER)
-			fprintf(stderr, " Taken %ld/%ld jobs so far\n", taken_jobs, num_unfinished_jobs);
-#endif
+
+		for (int64_t i = 0; i < num_workers; i++) {
+			while (!workers[i]->ready_to_take_jobs.load());
+			workers[i]->async_jobs_taken.store(0);
+			workers[i]->finished_taking_jobs.store(false);
+			workers[i]->async_jobs_to_take.store(workers[i]->numThreads());
+			workers[i]->ready_to_take_jobs.store(true);
 		}
-		fprintf(stderr, " Took %ld jobs\n", taken_jobs);
+		for (int64_t i = 0; i < num_workers; i++) {
+			//cerr << "Waiting for worker " << i << " to finish taking jobs" << endl;
+			while (!workers[i]->finished_taking_jobs.load());
+			taken_jobs += workers[i]->async_jobs_taken.load();;
+			if (taken_jobs == 0) {
+				continue;
+			}
+			// fprintf(stderr,
+			// 	" Worker %ld took %ld jobs, total taken now %ld/%ld\n",
+			// 	i, workers[i]->async_jobs_taken.load(), taken_jobs, num_unfinished_jobs
+			// );
+		}
+
+		{
+			std::lock_guard<std::mutex> lock(global_print_mutex);
+			fprintf(stderr, " Took %ld jobs\n", taken_jobs);
+		}
 		// get current time
 		auto start_time = std::chrono::high_resolution_clock::now();
-		for (int32_t i = 0; i < workers_assigned; i++) {
+		//for (int32_t i = 0; i < workers_assigned; i++) {
+		for (int32_t i = 0; i < num_workers; i++) {
 			//fprintf(stderr, " Starting worker %d\n", i);
+			// if (workers[i]->async_jobs_taken <= 0) {
+			// 	//cerr << "Worker " << i << " has no jobs taken, skipping doJobs_async()" << endl;
+			// 	continue;
+			// }
 			workers[i]->doJobs_async();
 		}
 		//fprintf(stderr, " Started worker %d\n", i);
 		// wait for all workers to finish
-		bool all_finished = false;
-		bool all_cpu_finished = false;
-		bool all_gpu_finished = (workers_assigned <= num_cpu_workers);
-		cerr << "all_finished=" << all_finished
-			 << " all_cpu_finished=" << all_cpu_finished
-			 << " all_gpu_finished=" << all_gpu_finished << " (true if workers_assigned <= num_cpu_workers i.e. " << workers_assigned << " < " << num_cpu_workers << ")" << endl;
-		while (!all_finished) {
-			bool tmp_all_cpu_finished = true;
-			bool tmp_all_gpu_finished = workers_assigned <= num_cpu_workers;
-			bool any_unfinished = false;
-			for (int64_t i = 0; i < workers_assigned; i++) {
-				//if (i < 4 || i >= num_cpu_workers) cerr << i << "=" << workers[i]->finished.load() << " ";
-				if (!workers[i]->finished.load()) {
-					if (i < num_cpu_workers) {
-						tmp_all_cpu_finished = false;
-					}
-					else {
-						tmp_all_gpu_finished = false;
-					}
-					any_unfinished = true;
-				} else if (i + 1 == workers_assigned && !any_unfinished) {
-					all_finished = true;
-					cerr << "Finished all workers" << endl;
-					goto exit_all_finished_loop;
-				}
-			}
-			//cerr << endl;
-			if (tmp_all_cpu_finished && !all_cpu_finished) {
-				cerr << "Finished all CPU workers" << endl;
-				all_cpu_finished = true;
-			}
-			if (tmp_all_gpu_finished && !all_gpu_finished) {
-				cerr << "Finished all GPU workers" << endl;
-				all_gpu_finished = true;
-			}
-			all_finished = all_cpu_finished && all_gpu_finished;
-			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		}
+		waitForWorkersToFinish();
 	exit_all_finished_loop:
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-		fprintf(stderr, " Jobs/second processed+write: %.2f\n", (num_unfinished_jobs / (duration / 1000.0)));
-		database->finishJobs(unfinished_jobs, num_unfinished_jobs);
-		fprintf(stderr, "Finished iteration %ld\n", iteration);
+		{
+			std::lock_guard<std::mutex> lock(global_print_mutex);
+			fprintf(stderr, " Jobs/second processed+write: %.2f\n", (num_unfinished_jobs / (duration / 1000.0)));
+		}
+		//database->finishJobs(unfinished_jobs, num_unfinished_jobs);
+		for (int64_t i = 0; i < num_workers; i++) {
+			workers[i]->reset();
+		}
+		{
+			std::lock_guard<std::mutex> lock(global_print_mutex);
+			fprintf(stderr, "Finished iteration %ld\n", iteration);
+		}
+		#ifdef DEBUG_WORKER_CPU
+		if (database->has_found_sentence) {
+			if (database->getSentenceJobCountSlow() <= 0) {
+				{
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Database indicates found sentence, but no sentence jobs found!" << endl;
+				}
+				goto judgement_day;
+			}
+		}
+		#endif
+	}
+judgement_day:
+	for (int64_t i = 0; i < num_workers; i++) {
+		workers[i]->terminate();
+		while (!workers[i]->judgement_day.load()) {
+			{
+				std::lock_guard<std::mutex> lock(global_print_mutex);
+				cerr << "Waiting for worker " << i << " to terminate..." << endl;
+			}
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
+	}
+	{
+		std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << "Terminated all workers" << endl;
 	}
 }
 

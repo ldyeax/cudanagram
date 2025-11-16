@@ -19,6 +19,11 @@ using std::vector;
 using std::endl;
 using std::cerr;
 using job::Job;
+#include <mutex>
+std::mutex global_dictionary_mutex;
+
+// arbitrarily put this here
+std::mutex global_print_mutex;
 
 void dictionary::Dictionary::printStats()
 {
@@ -46,7 +51,7 @@ FrequencyMapIndex_t dictionary::Dictionary::getOrCreateFrequencyMapIndexByWordIn
 
 void dictionary::Dictionary::init()
 {
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 	cerr << "Dictionary init()" << endl;
 #endif
 	stats = {};
@@ -56,12 +61,12 @@ void dictionary::Dictionary::init()
 	char tmp[256] = {};
 	int8_t tmp2[NUM_LETTERS_IN_ALPHABET] = {};
 	for (int32_t i = 0; i < buffer_length; i++) {
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 		cerr << i << ": " << (int8_t)(buffer[i]) << " " << buffer[i] << endl;
 #endif
 		if (!buffer[i] || buffer[i] == '\r' || buffer[i] == '\n') {
 			i_tmp = 0;
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 			cerr << "continuing" << endl;
 #endif
 			continue;
@@ -70,7 +75,7 @@ void dictionary::Dictionary::init()
 			buffer[i] = buffer[i] - 'a' + 'A';
 		}
 		if (buffer[i] < 'A' || buffer[i] > 'Z') {
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 			cerr << "Invalid" << endl;
 #endif
 			stats.initial_words_removed++;
@@ -78,14 +83,14 @@ void dictionary::Dictionary::init()
 			while (i < buffer_length && buffer[i]) {
 				i++;
 			}
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 			cerr << "brought i up to " << i << endl;
 #endif
 			continue;
 		}
 		tmp[i_tmp++] = buffer[i];
 		if (i_tmp >= 256) {
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		if (
 			(i + 1 < buffer_length &&
@@ -96,17 +101,17 @@ void dictionary::Dictionary::init()
 			)
 			|| i + 1 >= buffer_length
 		) {
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 			cerr << "adding word at " << i << endl;
 #endif
 			tmp[i_tmp] = 0;
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 			fprintf(stderr, "tmp: %s;\n", &tmp[0]);
 #endif
 			i_tmp = 0;
 			stats.initial_words_parsed++;
 			FrequencyMap fm = createFrequencyMap(tmp);
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
 			fm.print();
 #endif
 			if (avx::compare(
@@ -115,7 +120,8 @@ void dictionary::Dictionary::init()
 				tmp2
 			).any_negative) {
 				stats.frequency_map_rejections++;
-#if DICTIONARY_DEBUG
+#ifdef DICTIONARY_DEBUG
+				cerr << "rejection: ";
 				reinterpret_cast<FrequencyMap*>(tmp2)->print();
 #endif
 				continue;
@@ -132,6 +138,10 @@ void dictionary::Dictionary::init()
 		);
 		word_index_lists_for_frequency_maps[fm_i].push_back(i);
 	}
+	if (frequency_maps_length == 0) {
+		cerr << "No frequency maps created in dictionary init()" << endl;
+		throw new std::runtime_error("unspecified");
+	}
 }
 
 dictionary::Dictionary::Dictionary(
@@ -142,7 +152,7 @@ dictionary::Dictionary::Dictionary(
 )
 {
 	if (p_input == NULL) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	input = string(p_input);
 	input_frequency_map = createFrequencyMap(p_input);
@@ -159,7 +169,7 @@ dictionary::Dictionary::Dictionary(
 		cerr << "Initializing dictionary with filename" << endl;
 		FILE* fp = fopen(p_filename, "r");
 		if (fp == NULL) {
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		buffer = new char[MAX_DICTIONARY_BUFFER];
 		buffer_length = fread(
@@ -169,13 +179,13 @@ dictionary::Dictionary::Dictionary(
 			fp
 		);
 		if (ferror(fp) != 0) {
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		fclose(fp);
 		init();
 	}
 	else {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 }
 
@@ -213,7 +223,7 @@ __host__ frequency_map::Result dictionary::Dictionary::h_compareFrequencyMaps_pi
 {
 	frequency_map::FrequencyMap* other = getFrequencyMapPointer(other_index);
     if (other == NULL) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	auto ret = avx::compare(
 		*input,
@@ -290,24 +300,24 @@ void dictionary::Dictionary::printSentence(
 	}
 }
 
-int64_t processJob(Dictionary* dict, Job* p_input, shared_ptr<vector<Job>> existing_jobs)
+int64_t processJob(Dictionary* dict, int64_t index, shared_ptr<vector<Job>> existing_jobs)
 {
-	frequency_map::FrequencyMap tmp = {};
 	job::Job tmp_job = {};
-	tmp_job.parent_job_id = p_input->job_id;
-	FrequencyMapIndex_t start = p_input->start;
+	tmp_job.parent_job_id = existing_jobs->at(index).job_id;
+	FrequencyMapIndex_t start = existing_jobs->at(index).start;
 	FrequencyMapIndex_t end = dict->frequency_maps_length;
 	if (start >= end) {
-		throw;
+		throw new std::runtime_error("unspecified");
 	}
 	int64_t ret = 0;
 	for (FrequencyMapIndex_t i = start; i < end; i++) {
 		frequency_map::Result result = dict->h_compareFrequencyMaps_pip(
-			&p_input->frequency_map,
+			&existing_jobs->at(index).frequency_map,
 			i,
 			&tmp_job.frequency_map
 		);
 		if (result == INCOMPLETE_MATCH) {
+			cerr << "INCOMPLETE_MATCH found in processJob at " << i << endl;
 			tmp_job.job_id = existing_jobs->size() + 1;
 			tmp_job.start = i;
 			tmp_job.is_sentence = false;
@@ -316,6 +326,7 @@ int64_t processJob(Dictionary* dict, Job* p_input, shared_ptr<vector<Job>> exist
 			ret++;
 		}
 		else if (result == COMPLETE_MATCH) {
+			cerr << "COMPLETE_MATCH found in processJob at " << i << endl;
 			tmp_job.job_id = existing_jobs->size() + 1;
 			tmp_job.start = i;
 			tmp_job.is_sentence = true;
@@ -325,14 +336,31 @@ int64_t processJob(Dictionary* dict, Job* p_input, shared_ptr<vector<Job>> exist
 		}
 	}
 
-	p_input->finished = true;
+	cerr << "Marking job " << existing_jobs->at(index).job_id << " as finished" << endl;
+	existing_jobs->at(index).finished = true;
+
 	return ret;
 }
 
-shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int32_t count)
+shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int64_t count)
 {
+	#ifdef DICTIONARY_DEBUG
+	count = 1;
+	#endif
+	std::lock_guard<std::mutex> lock(global_dictionary_mutex);
+	cerr << "Dictionary: Creating initial jobs up to count " << count << endl;
+	cerr << "frequency maps length = " << frequency_maps_length << endl;
 	shared_ptr<vector<Job>> ret = make_shared<vector<Job>>();
-	ret->reserve(count * 4);
+	int64_t to_reserve = count * frequency_maps_length * 2L;
+	if (to_reserve < 0) {
+		cerr << "bad to_reserve calculation: " << to_reserve << endl;
+		throw new std::runtime_error("unspecified");
+	}
+	if (to_reserve > 65535) {
+		to_reserve = 65535;
+	}
+	cerr << "Reserving space for up to " << to_reserve << " jobs" << endl;
+	ret->reserve(to_reserve);
 	//ret->push_back(start_job);
 	Job& start_job = ret->emplace_back();
 	start_job.job_id = 1;
@@ -341,17 +369,28 @@ shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int32_t count)
 	start_job.start = 0;
 	start_job.finished = false;
 	start_job.is_sentence = false;
-
-	int64_t unfinished_count = 1;
+	start_job.finished = false;
+	if (start_job.frequency_map.isAllZero()) {
+		cerr << "createInitialjobs: all-zero frequency map in start job" << endl;
+		throw new std::runtime_error("unspecified");
+	}
+	if (start_job.frequency_map.anyNegative()) {
+		cerr << "createInitialjobs: negative frequency map value in start job" << endl;
+		throw new std::runtime_error("unspecified");
+	}
+	int64_t unfinished_count = 0;
+	int64_t finished_count = 0;
 	while (unfinished_count < count) {
 		int64_t initial_size = ret->size();
 		int64_t added = 0;
 		for (int32_t i = 0; i < initial_size; i++) {
 			if (!ret->at(i).finished) {
-				added += processJob(this, &ret->at(i), ret);
+				cerr << "createInitialjobs: processing job " << ret->at(i).job_id << " unfinished_count=" << unfinished_count << endl;
+				added += processJob(this, i, ret);
 			}
 		}
 		if (added == 0) {
+			cerr << "createInitialjobs: no more jobs can be created, breaking at unfinished_count=" << unfinished_count << endl;
 			break;
 		}
 		unfinished_count = 0;
@@ -361,6 +400,35 @@ shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int32_t count)
 			}
 		}
 	}
+	cerr << "Created " << ret->size() << " initial jobs (" << unfinished_count << " unfinished, " << (ret->size() - unfinished_count) << " finished)" << endl;
+	for (int64_t i = 0; i < ret->size(); i++) {
+		if (!ret->at(i).finished) {
+			if (ret->at(i).frequency_map.isAllZero()) {
+				cerr << "createInitialjobs: all-zero frequency map in job " << ret->at(i).job_id << endl;
+				throw new std::runtime_error("all-zero frequency map in job");
+			}
+			if (ret->at(i).frequency_map.anyNegative()) {
+				cerr << "createInitialjobs: negative frequency map value in job " << ret->at(i).job_id << endl;
+				throw new std::runtime_error("negative frequency map value in job");
+			}
+		}
+	}
+
+	Job& start_job_2 = ret->at(0);
+	start_job_2.finished = true;
+
+	int64_t unfinished_count_2 = 0;
+	for (int64_t i = 0; i < ret->size(); i++) {
+		if (!ret->at(i).finished) {
+			unfinished_count_2++;
+		}
+	}
+	// cerr << "start_job_2.finished set to true" << endl;
+	cerr << "unfinished_count_2: " << unfinished_count_2 << endl;
+
+	// cerr << "start_job_2.finished = true" << endl;
+	// cerr << "start_job_2.finished: " << start_job_2.finished << endl;
+	// cerr << "ret[0].finished: " << ret->at(0).finished << endl;
 	return ret;
 }
 
@@ -371,6 +439,19 @@ void dictionary::Dictionary::printWordsAt(FrequencyMapIndex_t fm_index)
 		return;
 	}
 	for (auto w_i : word_index_lists_for_frequency_maps[fm_index]) {
+		cout << words[w_i] << endl;
+	}
+}
+void dictionary::Dictionary::printWordsAt(FrequencyMapIndex_t fm_index, int32_t depth)
+{
+	if (fm_index < 0 || fm_index >= frequency_maps_length) {
+		cerr << "Invalid frequency map index: " << fm_index << endl;
+		return;
+	}
+	for (auto w_i : word_index_lists_for_frequency_maps[fm_index]) {
+		if (depth-- <= 0) {
+			return;
+		}
 		cout << words[w_i] << endl;
 	}
 }

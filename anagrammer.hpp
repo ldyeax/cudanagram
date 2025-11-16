@@ -50,5 +50,6 @@ namespace anagrammer {
 		void printFoundSentences();
 		// Print the dictionary after rejection passes included frequency map
 		void printDict();
+		void waitForWorkersToFinish();
     };
 }

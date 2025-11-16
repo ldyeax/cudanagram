@@ -21,7 +21,7 @@ FrequencyMap frequency_map::createFrequencyMap(char* input)
 			c = c - 'a' + 'A';
 		}
 		if (c < 'A' || c > 'Z') {
-			throw;
+			throw new std::runtime_error("unspecified");
 		}
 		ret[c - 'A']++;
 	}

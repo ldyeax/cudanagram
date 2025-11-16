@@ -134,15 +134,10 @@ private:
 		int64_t max_input_jobs_per_iteration;
 
 		Job* h_input_jobs = nullptr;
-public:
-        vector<Job*> h_unfinished_jobs;
-        std::thread h_thread;
-        int device_id;
 
-		void reset() override {
-			Worker::reset();
-			h_unfinished_jobs.clear();
-		}
+		std::thread h_thread;
+public:
+        int device_id;
 
 		void doJob(Job* d_input_jobs, int64_t p_count) override
 		{
@@ -223,7 +218,7 @@ public:
 		void doJobs()
         {
 			int64_t jobs_done = 0;
-			int64_t num_unfinished_jobs = h_unfinished_jobs.size();
+			int64_t num_unfinished_jobs = unfinished_jobs.size();
 
 			last_result.new_jobs.clear();
 
@@ -236,9 +231,9 @@ public:
 					jobs_end = num_unfinished_jobs;
 				}
 				int64_t num_input_jobs = jobs_end - jobs_start;
-				for (int64_t i = 0; i < num_input_jobs; i++) {
-					h_input_jobs[i] = *(h_unfinished_jobs[jobs_start + i]);
-				}
+				// for (int64_t i = 0; i < num_input_jobs; i++) {
+				// 	h_input_jobs[i] = *(unfinished_jobs[jobs_start + i]);
+				// }
 				#ifdef TEST_WORKER_GPU
 				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end - 1 << " ("
 					 << num_input_jobs << " jobs).." << endl;
@@ -246,7 +241,7 @@ public:
 				// copy input jobs to device
 				gpuErrChk(cudaMemcpy(
 					d_input_jobs,
-					h_input_jobs,
+					&unfinished_jobs[jobs_start],
 					sizeof(Job) * num_input_jobs,
 					cudaMemcpyHostToDevice
 				));
@@ -275,7 +270,7 @@ public:
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
 			#endif
-			h_input_jobs = new Job[max_input_jobs_per_iteration];
+			//h_input_jobs = new Job[max_input_jobs_per_iteration];
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating " << max_new_jobs_per_job * max_input_jobs_per_iteration << " new jobs on host for device " << device_id << endl;
 			#endif
@@ -368,7 +363,6 @@ public:
 #endif
 					auto txn = thread_db->beginTransaction();
 					WriteResult(&last_result, dict, txn);
-					thread_db->commitTransaction(txn);
 					finished = true;
                 }
                 else {
@@ -465,31 +459,14 @@ public:
             h_thread = std::thread(&Worker_GPU::loop, this);
         }
 
-        int64_t takeJobs(Job* buffer, int64_t max_length) override {
-			int64_t to_take = std::min(
-				(int64_t)numThreads(), max_length
-			);
-#ifdef TEST_WORKER_GPU
-			fprintf(stderr, "Worker_GPU::takeJobs: taking %ld jobs on device %d\n", to_take, device_id);
-#endif
-			fprintf(stderr, "Worker_GPU::takeJobs: taking %ld jobs on device %d\n", to_take, device_id);
-            for (int64_t i = 0; i < to_take; i++) {
-				h_unfinished_jobs.push_back(buffer++);
-			}
-            return to_take;
-        }
-
-        void doJobs_async() override {
-			finished = false;
-            ready_to_start = true;
-        }
-
         int32_t numThreads() override {
 #ifdef TEST_WORKER_GPU
 			return 1;
 #endif
             return worker_gpu_blocks * worker_gpu_threads_per_block;
         }
+
+
     };
     class WorkerFactory_GPU : public WorkerFactory {
     public:

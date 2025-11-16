@@ -1,0 +1,7 @@
+a
+bat
+lo
+world
+car
+hel
+hello

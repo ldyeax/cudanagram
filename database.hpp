@@ -11,24 +11,64 @@ using std::vector;
 using std::shared_ptr;
 using std::make_shared;
 using dictionary::Dictionary;
+using std::cerr;
+using std::endl;
+
 namespace database {
 	struct Impl;
 	struct Txn;
-	class Database {
+	class DatabaseBase {
+		public:
+		std::string db_name;
+		virtual void commitTransaction(Txn* txn) = 0;
+	};
+
+	struct TxnContainer {
+		DatabaseBase* db;
+		Txn* txn = nullptr;
+		bool committed = false;
+		TxnContainer(DatabaseBase* p_db, Txn* p_txn)
+		{
+			db = p_db;
+			if (db == nullptr) {
+				throw std::invalid_argument("TxnContainer constructed with null database");
+			}
+			txn = p_txn;
+			if (txn == nullptr) {
+				throw std::invalid_argument("TxnContainer constructed with null txn");
+			}
+			cerr << "TxnContainer " << db->db_name << " constructed for database " << endl;
+		}
+		~TxnContainer()
+		{
+			if (!committed) {
+				cerr << "TxnContainer " << db->db_name << " destructed without commit, committing." << endl;
+				db->commitTransaction(txn);
+			}
+			else {
+				cerr << "TxnContainer " << db->db_name << " destructed after commit." << endl;
+			}
+		}
+		// operator Txn*()
+		// {
+		// 	return txn;
+		// }
+	};
+	class Database : public DatabaseBase {
 	private:
 		std::string getNewDatabaseName();
-		std::string db_name;
 		Impl* impl = nullptr;
 		void create_db();
 		void connect();
 		void init();
 		bool using_cache = true;
 	public:
+		bool has_found_sentence;
 		databaseType_t getDatabaseType();
 		// char* finishJobs_buffer = nullptr;
 		// int64_t finishJobs_buffer_size = 0;
-		Txn* beginTransaction();
-		void commitTransaction(Txn* txn);
+		TxnContainer beginTransaction();
+		virtual void commitTransaction(Txn* txn) override;
 		~Database();
 		Database();
 		Database(std::string existing_db_name);
@@ -53,6 +93,8 @@ namespace database {
 		job::Job getJob(JobID_t job_id, Txn* txn);
 		int64_t getUnfinishedJobs(int64_t length, job::Job* output);
 		int64_t getUnfinishedJobs(int64_t length, job::Job* output, Txn* txn);
+		int64_t getUnfinishedJobs(int64_t length, vector<Job>* buffer);
+		int64_t getUnfinishedJobs(int64_t length, vector<Job>* buffer, Txn* txn);
 		int64_t getAndRemoveUnfinishedJobs(
 			int64_t length,
 			job::Job* output
@@ -77,7 +119,12 @@ namespace database {
 		void printFoundSentences(Dictionary* dict);
 		void addChild(Database* child);
 		void setJobIDIncrementStart(int64_t start);
+		void getFoundSentenceJobs(vector<Job>& out_jobs);
+		void getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn);
+		int64_t getSentenceJobCountSlow();
 	};
+
+
 	// class Database_PSQL : public Database {
 	// 	// PSQL-specific implementations
 	// };

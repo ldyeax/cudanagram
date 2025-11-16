@@ -41,6 +41,36 @@ namespace frequency_map {
 			}
 			printf("\n");
 		}
+
+		bool isAllZero()
+		{
+			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
+				if (frequencies[i] != 0) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		bool anyNegative()
+		{
+			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
+				if (frequencies[i] < 0) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool equals(FrequencyMap& other)
+		{
+			for (int32_t i = 0; i < NUM_LETTERS_IN_ALPHABET; i++) {
+				if (frequencies[i] != other.frequencies[i]) {
+					return false;
+				}
+			}
+			return true;
+		}
 	};
 	enum Result {
 		no_match = 0,

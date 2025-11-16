@@ -75,7 +75,9 @@ int main(int argc, char** argv)
 		return 0;
 	}
 	a.initWorkers(use_cpu, use_gpu);
+	cerr << "cudanagram.cu: initialized workers, starting run()" << endl;
 	a.run();
+	cerr << "cudanagram.cu: run() done, printing found sentences:" << endl;
 	a.printFoundSentences();
 	return 0;
 }
