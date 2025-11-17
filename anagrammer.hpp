@@ -93,6 +93,7 @@ namespace anagrammer {
 			int64_t jobs_per_thread = total_jobs / total_threads;
 			Job* initial_jobs_buffer = initial_jobs.unfinished_jobs->data();
 			int64_t num_jobs_taken = 0;
+			cerr << factories.size() << " factories" << endl;
 			for (int64_t i = 0; i < (int64_t)factories.size(); i++) {
 				auto& f = factories[i];
 				int64_t num_jobs_for_factory
