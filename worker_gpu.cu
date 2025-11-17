@@ -307,8 +307,8 @@ public:
 			max_new_jobs_per_job = dictionary->frequency_maps_length;
 
 			// No allocations needed
-			cerr << "Setting malloc heap size to 0 on device " << device_id << endl;
-			gpuErrChk(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 0));
+			// cerr << "Setting malloc heap size to 0 on device " << device_id << endl;
+			// gpuErrChk(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 0));
 			gpuErrChk(cudaDeviceSynchronize());
 
 			// Get our device info based on device id
@@ -363,6 +363,11 @@ public:
 			// not dynamic stack. Don't artificially limit cudaLimitStackSize based on it.
 			// CUDA manages stack separately from device memory allocations.
 			cerr << "Kernel uses " << kernel_stack_size << " bytes of static local memory per thread on device " << device_id << endl;
+
+			cudaDeviceSetLimit(
+				cudaLimitStackSize,
+				4096
+			);
 
 			// Query current limits
 			size_t stackSize, heapSize;
