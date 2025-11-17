@@ -43,4 +43,5 @@ int main(int argc, char** argv)
 		non_sentence_finished_jobs
 	);
 	w.start();
+	while(true);
 }
