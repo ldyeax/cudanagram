@@ -144,24 +144,24 @@ namespace worker {
 					}
 					throw;
 				}
-				else {
-					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Initial jobs is valid in Worker constructor" << endl;
-				}
+				// else {
+				// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
+				// 	cerr << "Initial jobs is valid in Worker constructor" << endl;
+				// }
 
 				database = new Database();
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
 					database_name = (char*)database->db_name.c_str();
-					cerr << "Worker database name: " << database_name << endl;
+					//cerr << "Worker database name: " << database_name << endl;
 				}
 				database->setJobIDIncrementStart(0x7FFFFFFF);
 				dictionary = dict;
 				unfinished_jobs = new Job[getUnfinishedJobsBufferSize()];
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Allocated unfinished jobs buffer of size "
-						<< getUnfinishedJobsBufferSize() << endl;
+					// cerr << "Allocated unfinished jobs buffer of size "
+					// 	<< getUnfinishedJobsBufferSize() << endl;
 				}
 				// num_unfinished_jobs = p_num_initial_jobs;
 				// memcpy(

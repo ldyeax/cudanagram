@@ -154,7 +154,7 @@ namespace anagrammer {
 still_uninitialized:
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << " .." << endl;
+					// cerr << " .." << endl;
 				}
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 				continue;
