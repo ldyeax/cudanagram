@@ -340,7 +340,6 @@ public:
 					(sizeof(Job)
 						+ sizeof(Job) * max_new_jobs_per_job
 						+ sizeof(int64_t)
-						+ kernel_stack_size
 					);
 			cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration << " based on free memory of "
 				 << freeMem << " bytes on device " << device_id << endl;
@@ -360,13 +359,10 @@ public:
 					/ worker_gpu_threads_per_block;
 			#endif
 
-			cerr << "Setting stack size per thread to kernel_stack_size = "
-				 << kernel_stack_size << " bytes on device " << device_id << endl;
-			gpuErrChk(cudaDeviceSetLimit(
-				cudaLimitStackSize,
-				kernel_stack_size
-			));
-			gpuErrChk(cudaDeviceSynchronize());
+			// Note: kernel_stack_size (funcAttrib.localSizeBytes) is static local memory,
+			// not dynamic stack. Don't artificially limit cudaLimitStackSize based on it.
+			// CUDA manages stack separately from device memory allocations.
+			cerr << "Kernel uses " << kernel_stack_size << " bytes of static local memory per thread on device " << device_id << endl;
 
 			// Query current limits
 			size_t stackSize, heapSize;
