@@ -341,6 +341,7 @@ public:
 						+ sizeof(Job) * max_new_jobs_per_job
 						+ sizeof(int64_t)
 					);
+			max_input_jobs_per_iteration = max_input_jobs_per_iteration * 3L / 4L;
 			cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration << " based on free memory of "
 				 << freeMem << " bytes on device " << device_id << endl;
 
