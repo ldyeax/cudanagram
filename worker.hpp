@@ -143,7 +143,7 @@ namespace worker {
 				if (p_num_initial_jobs <= 0) {
 					{
 						//std::lock_guard<std::mutex> lock(global_print_mutex);
-						cerr << "Initial jobs count is invalid in Worker constructor" << endl;
+						cerr << "Initial jobs count " << p_num_initial_jobs << " is invalid in Worker constructor" << endl;
 					}
 					throw;
 				}
