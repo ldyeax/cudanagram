@@ -35,9 +35,9 @@ namespace worker_GPU {
 		}
 #endif
 		if (index >= num_input_jobs) {
-// #ifdef TEST_WORKER_GPU
-// 			printf("kernel: index %ld >= num_input_jobs %ld, returning\n", index, num_input_jobs);
-// #endif
+ #ifdef TEST_WORKER_GPU
+ 			printf("kernel: index %ld >= num_input_jobs %ld, returning\n", index, num_input_jobs);
+ #endif
 			return;
 		}
 		d_job += index;
@@ -309,12 +309,17 @@ public:
 			//#endif
 			worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
 			// round max_input_jobs_per_iteration to the nearest multiple of worker_gpu_threads_per_block
+			#ifdef TEST_WORKER_GPU
+			max_input_jobs_per_iteration = 1;
+			worker_gpu_blocks = 1;
+			#else
 			max_input_jobs_per_iteration
 				= (max_input_jobs_per_iteration / worker_gpu_threads_per_block)
 					* worker_gpu_threads_per_block;
 			worker_gpu_blocks
 				= max_input_jobs_per_iteration
 					/ worker_gpu_threads_per_block;
+			#endif
 
 			cerr << "Setting stack size per thread to kernel_stack_size = "
 				 << kernel_stack_size << " bytes on device " << device_id << endl;
