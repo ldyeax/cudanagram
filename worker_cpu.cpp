@@ -159,7 +159,7 @@ public:
 			Job* thread_initial_jobs = initial_jobs;
 			// create as detached thread
 			std::thread t1([i, jobs_to_give, thread_initial_jobs, dict, non_sentence_finished_jobs, buffer]() {
-				//cerr << "Thread got jobs to give: " << jobs_to_give << endl;
+				cerr << "Thread got jobs to give: " << jobs_to_give << endl;
 				buffer[i].store(new Worker_CPU(
 					dict,
 					thread_initial_jobs,
