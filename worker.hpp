@@ -133,10 +133,6 @@ namespace worker {
 					}
 					throw;
 				}
-				else {
-					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Dictionary is null in Worker constructor" << endl;
-				}
 				if (dict == nullptr) {
 					{
 						//std::lock_guard<std::mutex> lock(global_print_mutex);
