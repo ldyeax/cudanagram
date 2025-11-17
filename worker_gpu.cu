@@ -224,7 +224,6 @@ public:
 			fprintf(stderr, "Worker_GPU::doJob: copied results numbers list back to host from device %d\n", device_id);
 			#endif
 			Job* h_write_pointer = new_jobs_buffer;
-			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
 				if (num_new_jobs_i == 0) {
@@ -236,7 +235,7 @@ public:
 				// std::string dummy;
 				// std::getline(std::cin, dummy);
 				#endif
-				num_total_new_jobs += num_new_jobs_i;
+				num_new_jobs += num_new_jobs_i;
 				//Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
 				gpuErrChk(cudaMemcpy(
 					h_write_pointer,
@@ -247,7 +246,7 @@ public:
 				h_write_pointer += num_new_jobs_i;
 			}
 			#ifdef TEST_WORKER_GPU
-			fprintf(stderr, "Worker_GPU::doJob: total new jobs produced: %ld\n", num_total_new_jobs);
+			fprintf(stderr, "Worker_GPU::doJob: total new jobs produced: %ld\n", num_new_jobs);
 			// read line to pause
 			#endif
 		}
@@ -292,6 +291,7 @@ public:
 				#endif
 				jobs_done += num_input_jobs;
 			}
+			cerr << "End of doJobs num_new_jobs=" << num_new_jobs << endl;
         }
 		int64_t estimatedMemoryUsage()
 		{
