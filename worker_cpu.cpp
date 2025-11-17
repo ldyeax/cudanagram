@@ -160,6 +160,10 @@ public:
 			// create as detached thread
 			std::thread t1([i, jobs_to_give, thread_initial_jobs, dict, non_sentence_finished_jobs, buffer]() {
 				cerr << "Thread got jobs to give: " << jobs_to_give << endl;
+				if (jobs_to_give <= 0) {
+					cerr << "This should be impossible " << jobs_to_give << endl;
+					throw;
+				}
 				buffer[i].store(new Worker_CPU(
 					dict,
 					thread_initial_jobs,
