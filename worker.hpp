@@ -72,6 +72,8 @@ namespace worker {
 		virtual void doJobs() = 0;
 		void writeNewJobsToDatabase()
 		{
+			cerr << "Base writeNewJobsToDatabase called with num_new_jobs = "
+				<< num_new_jobs << endl;
 			if (num_new_jobs > 0) {
 				database->writeNewJobs(
 					new_jobs_buffer,
