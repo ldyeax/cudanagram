@@ -22,6 +22,7 @@ namespace worker_GPU {
 		int64_t num_jobs
 	)
 	{
+		printf("---printJobsKernel launched %p %d\n", d_jobs, num_jobs);
 		int64_t index = blockIdx.x * blockDim.x + threadIdx.x;
 		if (index >= num_jobs) {
 			printf("printJobsKernel: index %ld >= num_jobs %ld, returning\n", index, num_jobs);
