@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include "job.hpp";
 #include "definitions.hpp"
 #include "frequency_map.hpp"
 #include <stdint.h>
@@ -21,6 +22,8 @@ using std::shared_ptr;
 using std::make_shared;
 using job::Job;
 
+
+
 #define FrequencyMapIndex_t int32_t
 
 namespace dictionary {
@@ -28,6 +31,13 @@ namespace dictionary {
 	    int32_t initial_words_parsed = 0;
 	    int32_t initial_words_removed = 0;
 		int32_t frequency_map_rejections = 0;
+	};
+
+	struct InitialJobsCreation {
+		shared_ptr<vector<Job>> unfinished_jobs = nullptr;
+		shared_ptr<vector<Job>> non_sentence_finished_jobs = nullptr;
+		shared_ptr<vector<Job>> sentence_finished_jobs = nullptr;
+		JobID_t max_id = 0;
 	};
 
 	class Dictionary {
@@ -52,7 +62,10 @@ namespace dictionary {
 
 		void printStats();
 
-		shared_ptr<vector<Job>> createInitialjobs(int64_t count);
+		//shared_ptr<vector<Job>> createInitialjobs(int64_t count);
+		InitialJobsCreation createInitialJobs(
+			int64_t count
+		);
 
 		FrequencyMapIndex_t getOrCreateFrequencyMapIndexByWordIndex(
 			int32_t w_i

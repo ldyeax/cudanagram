@@ -342,15 +342,45 @@ int64_t processJob(Dictionary* dict, int64_t index, shared_ptr<vector<Job>> exis
 	return ret;
 }
 
-shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int64_t count)
+void printFoundSentences_initial(
+	Dictionary* dict,
+	shared_ptr<vector<job::Job>> finished_jobs
+)
+{
+	{
+		std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << "Printing found sentences from " << finished_jobs->size() << " finished jobs" << endl;
+	}
+	for (auto& job : *finished_jobs) {
+		if (job.is_sentence) {
+			{
+				std::lock_guard<std::mutex> lock(global_print_mutex);
+				cerr << "Found sentence in job " << job.job_id << ": ";
+			}
+			dict->printSentence(
+				make_shared<vector<FrequencyMapIndex_t>>(
+					vector<FrequencyMapIndex_t>{}
+				)
+			);
+		}
+	}
+}
+
+InitialJobsCreation dictionary::Dictionary::createInitialJobs(int64_t count)
 {
 	#ifdef DICTIONARY_DEBUG
 	count = 1;
 	#endif
-	std::lock_guard<std::mutex> lock(global_dictionary_mutex);
+	//std::lock_guard<std::mutex> lock(global_dictionary_mutex);
+	InitialJobsCreation ret = {
+		.unfinished_jobs = make_shared<vector<Job>>(),
+		.non_sentence_finished_jobs = make_shared<vector<Job>>(),
+		.sentence_finished_jobs = make_shared<vector<Job>>(),
+		.max_id = 0
+	};
 	cerr << "Dictionary: Creating initial jobs up to count " << count << endl;
 	cerr << "frequency maps length = " << frequency_maps_length << endl;
-	shared_ptr<vector<Job>> ret = make_shared<vector<Job>>();
+
 	int64_t to_reserve = count * frequency_maps_length * 2L;
 	if (to_reserve < 0) {
 		cerr << "bad to_reserve calculation: " << to_reserve << endl;
@@ -360,9 +390,13 @@ shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int64_t count)
 		to_reserve = 65535;
 	}
 	cerr << "Reserving space for up to " << to_reserve << " jobs" << endl;
-	ret->reserve(to_reserve);
+	ret.unfinished_jobs->reserve(to_reserve);
+	ret.non_sentence_finished_jobs->reserve(to_reserve);
+	ret.sentence_finished_jobs->reserve(to_reserve);
 	//ret->push_back(start_job);
-	Job& start_job = ret->emplace_back();
+	vector<Job> tmp = vector<Job>();
+	tmp.reserve(to_reserve);
+	Job& start_job = tmp.emplace_back();
 	start_job.job_id = 1;
 	start_job.parent_job_id = 0;
 	copyInputFrequencyMap(&start_job.frequency_map);
@@ -381,12 +415,12 @@ shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int64_t count)
 	int64_t unfinished_count = 0;
 	int64_t finished_count = 0;
 	while (unfinished_count < count) {
-		int64_t initial_size = ret->size();
+		int64_t initial_size = tmp.size();
 		int64_t added = 0;
 		for (int32_t i = 0; i < initial_size; i++) {
-			if (!ret->at(i).finished) {
-				cerr << "createInitialjobs: processing job " << ret->at(i).job_id << " unfinished_count=" << unfinished_count << endl;
-				added += processJob(this, i, ret);
+			if (!tmp.at(i).finished) {
+				cerr << "createInitialjobs: processing job " << tmp.at(i).job_id << " unfinished_count=" << unfinished_count << endl;
+				added += processJob(this, i, ret.unfinished_jobs);
 			}
 		}
 		if (added == 0) {
@@ -394,41 +428,45 @@ shared_ptr<vector<Job>> dictionary::Dictionary::createInitialjobs(int64_t count)
 			break;
 		}
 		unfinished_count = 0;
-		for (int64_t i = 0; i < ret->size(); i++) {
-			if (!ret->at(i).finished) {
+		for (int64_t i = 0; i < tmp.size(); i++) {
+			if (!tmp.at(i).finished) {
 				unfinished_count++;
 			}
 		}
 	}
-	cerr << "Created " << ret->size() << " initial jobs (" << unfinished_count << " unfinished, " << (ret->size() - unfinished_count) << " finished)" << endl;
-	for (int64_t i = 0; i < ret->size(); i++) {
-		if (!ret->at(i).finished) {
-			if (ret->at(i).frequency_map.isAllZero()) {
-				cerr << "createInitialjobs: all-zero frequency map in job " << ret->at(i).job_id << endl;
+	cerr << "Created " << tmp.size() << " initial jobs (" << unfinished_count << " unfinished, " << (tmp.size() - unfinished_count) << " finished)" << endl;
+	for (int64_t i = 0; i < tmp.size(); i++) {
+		if (!tmp.at(i).finished) {
+			if (tmp.at(i).frequency_map.isAllZero()) {
+				cerr << "createInitialjobs: all-zero frequency map in job " << tmp.at(i).job_id << endl;
 				throw new std::runtime_error("all-zero frequency map in job");
 			}
-			if (ret->at(i).frequency_map.anyNegative()) {
-				cerr << "createInitialjobs: negative frequency map value in job " << ret->at(i).job_id << endl;
+			if (tmp.at(i).frequency_map.anyNegative()) {
+				cerr << "createInitialjobs: negative frequency map value in job " << tmp.at(i).job_id << endl;
 				throw new std::runtime_error("negative frequency map value in job");
 			}
 		}
-	}
 
-	Job& start_job_2 = ret->at(0);
-	start_job_2.finished = true;
+		if (!tmp.at(i).finished) {
+			ret.unfinished_jobs->push_back(tmp.at(i));
+		}
+		else if (tmp.at(i).is_sentence) {
+			ret.sentence_finished_jobs->push_back(tmp.at(i));
+		}
+		else {
+			ret.non_sentence_finished_jobs->push_back(tmp.at(i));
+		}
 
-	int64_t unfinished_count_2 = 0;
-	for (int64_t i = 0; i < ret->size(); i++) {
-		if (!ret->at(i).finished) {
-			unfinished_count_2++;
+		if (tmp.at(i).job_id > ret.max_id) {
+			ret.max_id = tmp.at(i).job_id;
 		}
 	}
-	// cerr << "start_job_2.finished set to true" << endl;
-	cerr << "unfinished_count_2: " << unfinished_count_2 << endl;
 
-	// cerr << "start_job_2.finished = true" << endl;
-	// cerr << "start_job_2.finished: " << start_job_2.finished << endl;
-	// cerr << "ret[0].finished: " << ret->at(0).finished << endl;
+	printFoundSentences_initial(
+		this,
+		ret.sentence_finished_jobs
+	);
+
 	return ret;
 }
 
