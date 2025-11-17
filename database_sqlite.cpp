@@ -57,7 +57,6 @@ struct database::Impl {
 	std::mutex mutex;
 	sqlite3* db = nullptr;
 	Database* parent = nullptr;
-	vector<Database*> children {};
 	int64_t id = 0;
 	Impl() : db(nullptr)
 	{
@@ -80,28 +79,28 @@ struct database::Txn {
 
 	Txn(Impl* p_impl) : db(p_impl->db), committed(false), lock(p_impl->mutex, std::defer_lock) {
 		bool got_lock = false;
-		{
-			std::lock_guard<std::mutex> lock(global_print_mutex);
-			cerr << "Txn: Acquiring DB mutex lock for database id " << p_impl->id << endl;
-		}
+		// {
+		// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 	cerr << "Txn: Acquiring DB mutex lock for database id " << p_impl->id << endl;
+		// }
 		try {
 			got_lock = lock.try_lock();
-			if (got_lock) {
-				{
-					std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Txn: Got lock for " << p_impl->id << endl;
-				}
-			}
+			// if (got_lock) {
+			// 	{
+			// 		//std::lock_guard<std::mutex> lock(global_print_mutex);
+			// 		cerr << "Txn: Got lock for " << p_impl->id << endl;
+			// 	}
+			// }
 		} catch (...) {
 			{
-				std::lock_guard<std::mutex> lock(global_print_mutex);
+				//std::lock_guard<std::mutex> lock(global_print_mutex);
 				cerr << "Txn: Failed to acquire DB mutex lock for database id " << p_impl->id << endl;
 			}
 			throw new std::runtime_error("Failed to acquire DB mutex lock");
 		}
 		if (!got_lock) {
 			{
-				std::lock_guard<std::mutex> lock(global_print_mutex);
+				//std::lock_guard<std::mutex> lock(global_print_mutex);
 				cerr << "Txn: Failed to acquire DB mutex lock for database id " << p_impl->id << endl;
 			}
 			throw new std::runtime_error("Failed to acquire DB mutex lock");
@@ -116,10 +115,10 @@ struct database::Txn {
 			}
 			throw std::runtime_error(error);
 		}
-		{
-			std::lock_guard<std::mutex> lock(global_print_mutex);
-			cerr << "Began transaction on database id " << impl->id << endl;
-		}
+		// {
+		// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 	cerr << "Began transaction on database id " << impl->id << endl;
+		// }
 	}
 
 	void commit() {
@@ -139,25 +138,25 @@ struct database::Txn {
 
 	~Txn() {
 		if (!committed) {
-			//sqlite3_exec(db, "ROLLBACK", nullptr, nullptr, nullptr);
-			{
-				std::lock_guard<std::mutex> lock(global_print_mutex);
-				cerr << "~Txn: Transaction on database id " << impl->id << " not committed, committing." << endl;
-			}
+			// //sqlite3_exec(db, "ROLLBACK", nullptr, nullptr, nullptr);
+			// {
+			// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
+			// 	cerr << "~Txn: Transaction on database id " << impl->id << " not committed, committing." << endl;
+			// }
 			commit();
 		}
-		else {
-			{
-				std::lock_guard<std::mutex> lock(global_print_mutex);
-				cerr << "~Txn: Transaction on database id " << impl->id << " already committed." << endl;
-			}
-		}
+		// else {
+		// 	{
+		// 		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 		cerr << "~Txn: Transaction on database id " << impl->id << " already committed." << endl;
+		// 	}
+		// }
 		// Ensure lock released
 		lock.unlock();
-		{
-			std::lock_guard<std::mutex> lock(global_print_mutex);
-			cerr << "~Txn: Released DB mutex lock for database id " << impl->id << endl;
-		}
+		// {
+		// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 	cerr << "~Txn: Released DB mutex lock for database id " << impl->id << endl;
+		// }
 	}
 };
 
@@ -212,26 +211,6 @@ Database::Database(std::string existing_db_name)
 	cerr << "Connected to existing db" << endl;
 #endif
 }
-void Database::addChild(Database* other)
-{
-	impl->children.push_back(other);
-}
-Database::Database(Database* other)
-{
-	init();
-	static std::mutex construct_mutex;
-	std::lock_guard<std::mutex> lock(construct_mutex);
-#ifdef TEST_DB
-	cerr << "Constructing Database object with existing db name: " << other->db_name << endl;
-#endif
-	other->addChild(this);
-	impl->parent = other;
-	create_db();
-	connect();
-#ifdef TEST_DB
-	cerr << "Connected to existing db" << endl;
-#endif
-}
 
 void Database::create_db()
 {
@@ -248,43 +227,62 @@ void Database::create_db()
 		SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
 		nullptr);
 	if (rc != SQLITE_OK) {
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
 		string error = "Cannot create database: ";
-		error += sqlite3_errmsg(impl->db);
+		cerr << error;
+		const char* to_add = sqlite3_errmsg(impl->db);
+		if (to_add == NULL) {
+			cerr << " (no error message available)" << endl;
+		}
+		else {
+			cerr << to_add << " ";
+			error += to_add;
+		}
 		sqlite3_close(impl->db);
 		impl->db = nullptr;
 		throw std::runtime_error(error);
 	}
+	else {
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << "Created SQLite db: " << db_name << endl;
+	}
 
 	// Enable performance optimizations and multi-threading support
 	char* err_msg = nullptr;
-	// const char* pragmas =
-	// 	"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
-	// 	"PRAGMA journal_mode = OFF;"  // Memory journal for speed
-	// 	"PRAGMA synchronous = OFF;"
-	// 	"PRAGMA temp_store = MEMORY;"
-	// 	"PRAGMA cache_size = -16000000;"  // 16GB cache
-	// 	"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
-	// ;
-	// allow multithreaded
-
 	const char* pragmas =
 		"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
-		"PRAGMA journal_mode = WAL;"  // Memory journal for speed
-		"PRAGMA synchronous = ON;"
+		"PRAGMA journal_mode = OFF;"  // Memory journal for speed
+		"PRAGMA synchronous = OFF;"
 		"PRAGMA temp_store = MEMORY;"
 		"PRAGMA cache_size = -16000000;"  // 16GB cache
 		"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
-		"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
-		// enablem utex
-
 	;
+	// allow multithreaded
+
+	// const char* pragmas =
+	// 	"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
+	// 	"PRAGMA journal_mode = WAL;"  // Memory journal for speed
+	// 	"PRAGMA synchronous = ON;"
+	// 	"PRAGMA temp_store = MEMORY;"
+	// 	"PRAGMA cache_size = -16000000;"  // 16GB cache
+	// 	"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
+	// 	"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
+	// 	// enablem utex
+
+	// ;
 	if (sqlite3_exec(impl->db, pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
 		string error = "Failed to set pragmas for database " + db_name + ": ";
+		cerr << error;
 		if (err_msg) {
 			error += err_msg;
 			sqlite3_free(err_msg);
 		}
 		throw std::runtime_error(error);
+	}
+	else {
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << "Set pragmas for database " << db_name << endl;
 	}
 
 	// Create table
@@ -300,11 +298,21 @@ void Database::create_db()
 
 	if (sqlite3_exec(impl->db, create_table_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
 		string error = "Failed to create table: ";
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << error;
 		if (err_msg) {
+			cerr << err_msg;
 			error += err_msg;
 			sqlite3_free(err_msg);
 		}
+		else {
+			cerr << " (no error message available)" << endl;
+		}
 		throw std::runtime_error(error);
+	}
+	else {
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << "Created job table in database " << db_name << endl;
 	}
 
 	// Don't create index during initial creation - it slows down bulk inserts
@@ -320,58 +328,45 @@ void Database::create_db()
 	// 	throw std::runtime_error(error);
 	// }
 
-	Job placeholder_job;
-	placeholder_job.job_id = -impl->id;
-	placeholder_job.parent_job_id = 0;
-	placeholder_job.is_sentence = false;
-	placeholder_job.finished = false;
-
-	const char* insert_placeholder_job_sql =
-		"INSERT INTO job (job_id, parent_job_id, frequency_map, start, finished, is_sentence) VALUES (?, ?, ?, ?, ?, ?)";
-	sqlite3_stmt* stmt;
-	// job_id = -impl->id, finished=true
-	rc = sqlite3_prepare_v2(impl->db, insert_placeholder_job_sql, -1, &stmt, nullptr);
-	if (rc != SQLITE_OK) {
-		string error = "Failed to prepare insert placeholder job statement: ";
-		error += sqlite3_errmsg(impl->db);
-		throw std::runtime_error(error);
-	}
-	// sqlite3_bind_int64(stmt, 1, placeholder_job.job_id);
-	// sqlite3_bind_blob(stmt, 2, placeholder_job.frequency_map.asStdBytePointer(),
-	// 					NUM_LETTERS_IN_ALPHABET, SQLITE_STATIC);
-	sqlite3_bind_int64(stmt, 1, -impl->id);
-	sqlite3_bind_int64(stmt, 2, 0);
-	sqlite3_bind_blob(stmt, 3, placeholder_job.frequency_map.asStdBytePointer(),
-						NUM_LETTERS_IN_ALPHABET, SQLITE_STATIC);
-	sqlite3_bind_int(stmt, 4, 0);
-	sqlite3_bind_int(stmt, 5, 1);
-	sqlite3_bind_int(stmt, 6, 0);
-	rc = sqlite3_step(stmt);
-	if (rc != SQLITE_DONE) {
-		string error = "Failed to insert placeholder job:";
-		error += sqlite3_errmsg(impl->db);
-		sqlite3_finalize(stmt);
-		throw std::runtime_error(error);
-	}
-	sqlite3_finalize(stmt);
-
-	//cerr << "Created new SQLite db" << endl;
+	cerr << "Created new SQLite db" << endl;
 }
 
 void Database::connect()
 {
-	//cerr << "Connecting to SQLite db: " << db_name << endl;
+	#ifdef SQLITE_TEST
+	{
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << "Connecting to SQLite db: " << db_name << endl;
+	}
+	#endif
 
 	// Open with flags to support multi-threaded access
 	int rc = sqlite3_open_v2(db_name.c_str(), &impl->db,
 		SQLITE_OPEN_READWRITE ,
 		nullptr);
 	if (rc != SQLITE_OK) {
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
 		string error = "Cannot open database: ";
-		error += sqlite3_errmsg(impl->db);
+		cerr << error;
+		const char* to_add = sqlite3_errmsg(impl->db);
+		if (to_add == NULL) {
+			cerr << " (no error message available)" << endl;
+		}
+		else {
+			cerr << to_add << " ";
+		}
 		sqlite3_close(impl->db);
 		impl->db = nullptr;
+		{
+			//std::lock_guard<std::mutex> lock(global_print_mutex);
+			cerr << error << endl;
+		}
 		throw std::runtime_error(error);
+	}
+
+	{
+		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		cerr << "Connected to SQLite db: " << db_name << endl;
 	}
 
 	// Enable performance optimizations and multi-threading support
@@ -468,6 +463,12 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 			cerr << "writeNewJobs: all-zero frequency map in job to be written to database " << db_name << endl;
 			j.print();
 			throw new std::runtime_error("all-zero frequency map in job");
+		}
+
+		if (j.job_id == j.parent_job_id) {
+			cerr << "writeNewJobs: job " << j.job_id << " has same job_id and parent_job_id" << endl;
+			j.print();
+			throw new std::runtime_error("unspecified");
 		}
 		#endif
 
@@ -602,6 +603,11 @@ void Database::insertJobsWithIDs(job::Job* jobs, int64_t length, Txn* txn) {
 			}
 		}
 
+		if (j.job_id == j.parent_job_id) {
+			cerr << "insertJobsWithIDs: job " << j.job_id << " has same job_id and parent_job_id" << endl;
+			throw new std::runtime_error("unspecified");
+		}
+
 		#endif
 
 		// Bind parameters
@@ -665,10 +671,6 @@ void Database::finishJobsOnSelfAndChildren(job::Job* jobs, int64_t length) {
 	TxnContainer txn = beginTransaction();
 
 	finishJobs(jobs, length, txn.txn);
-
-	for (auto child_db : impl->children) {
-		child_db->finishJobsOnSelfAndChildren(jobs, length);
-	}
 }
 
 void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
@@ -680,10 +682,6 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
 	}
 
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
-
-	// for (auto child_db : impl->children) {
-	// 	child_db->finishJobs(jobs, length);
-	// }
 
 	const char* update_sql = "UPDATE job SET finished = 1 WHERE job_id = ?";
 
@@ -731,7 +729,15 @@ void Database::printFoundSentence(
 	if (parent_id != 0) {
 		indices->push_back(start);
 
+		// cerr << "Did push back start " << start << " for parent_id " << parent_id << endl;
+
 		Job found_job = getJob(parent_id, txn);
+		if (found_job.job_id == found_job.parent_job_id) {
+			cerr << "oedipus: found job with ID " << parent_id << " in printFoundSentence" << endl;
+			indices->push_back(found_job.start);
+			dict->printSentence(indices);
+			return;
+		}
 
 		printFoundSentence(
 			found_job.start,
@@ -750,7 +756,19 @@ void Database::printFoundSentence(
 void Database::getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn)
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
-	const char* select_sql = "SELECT parent_job_id, start FROM job WHERE is_sentence = 1";
+	//const char* select_sql = "SELECT parent_job_id, start FROM job WHERE is_sentence = 1";
+	// update is_sentence=0 returning
+	/*
+		string select_query =
+		"UPDATE job "
+		"SET finished = 1 "
+		"WHERE finished = 0 "
+		"RETURNING job_id, parent_job_id, frequency_map, start, finished "
+		"LIMIT " + std::to_string(length);
+	*/
+
+	const char* select_sql = "UPDATE job SET is_sentence = 0 WHERE is_sentence = 1 RETURNING parent_job_id, start";
+
 	sqlite3_stmt* stmt;
 	int rc = sqlite3_prepare_v2(txn->db, select_sql, -1, &stmt, nullptr);
 	if (rc != SQLITE_OK) {
@@ -767,18 +785,22 @@ void Database::getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn)
 		j.job_id = -1; // unknown
 		j.parent_job_id = parent_id;
 		j.start = start;
+		#ifdef SQLITE_TEST
 		cerr << "Found sentence job: parent_id=" << parent_id << ", start=" << start << endl;
+		#endif
 		out_jobs.push_back(j);
 	}
+	#ifdef SQLITE_TEST
 	cerr << "Exiting getFoundSentenceJobs with " << out_jobs.size() << " jobs found" << endl;
+	#endif
 
 	sqlite3_finalize(stmt);
 }
 void Database::getFoundSentenceJobs(vector<Job>& out_jobs)
 {
-	cerr << "Child database " << db_name << " getting found sentence jobs" << endl;
+	//cerr << "database " << db_name << " getting found sentence jobs" << endl;
 	TxnContainer txn = beginTransaction();
-	cerr << "Child database " << db_name << " began transaction for getting found sentence jobs" << endl;
+	//cerr << "database " << db_name << " began transaction for getting found sentence jobs" << endl;
 	getFoundSentenceJobs(out_jobs, txn.txn);
 }
 
@@ -791,16 +813,12 @@ void Database::printFoundSentences(Dictionary* dict)
 
 	vector<Job> found_sentence_jobs;
 	getFoundSentenceJobs(found_sentence_jobs, txn.txn);
-	cerr << "Found " << found_sentence_jobs.size() << " sentence jobs in parent database " << db_name << endl;
-	for (auto child_db : impl->children) {
-		cerr << "Checking child database " << child_db->db_name << " for sentence jobs" << endl;
-		child_db->getFoundSentenceJobs(found_sentence_jobs);
-		cerr << "Found " << found_sentence_jobs.size() << " sentence jobs after checking child database " << child_db->db_name << endl;
-	}
+	//cerr << "Found " << found_sentence_jobs.size() << " sentence jobs in parent database " << db_name << endl;
 
 	for (const auto& job : found_sentence_jobs) {
-		cerr << "Printing found sentence for job with parent_id=" << job.parent_job_id << ", start=" << job.start << endl;
+		//cerr << "Printing found sentence for job with parent_id=" << job.parent_job_id << ", start=" << job.start << endl;
 		shared_ptr<vector<FrequencyMapIndex_t>> indices = make_shared<vector<FrequencyMapIndex_t>>();
+		//fprintf(stderr, "Calling printFoundSentence with start=%d, parent_id=%lld, indices=%p\n", job.start, (long long)job.parent_job_id, indices.get());
 		printFoundSentence(
 			job.start,
 			job.parent_job_id,
@@ -810,7 +828,7 @@ void Database::printFoundSentences(Dictionary* dict)
 		);
 	}
 
-	cerr << "Committing transaction after printing found sentences" << endl;
+	//cerr << "Committing transaction after printing found sentences" << endl;
 }
 
 void rowToJob(sqlite3_stmt* stmt, job::Job& j)
@@ -938,19 +956,7 @@ int64_t Database::printJobsStats()
 	int64_t total_jobs = getJobCountSlow(impl);
 	int64_t unfinished_jobs = getUnfinishedJobCountSlow(impl);
 	int64_t sentence_jobs = _getSentenceJobCountSlow(impl);
-	int64_t children_total_jobs = 0;
-	int64_t children_unfinished_jobs = 0;
-	int64_t children_sentence_jobs = 0;
-	for (auto child_db : impl->children) {
-		cerr << "Checking child database " << child_db->db_name << endl;
-		child_db->printJobsStats();
-		children_total_jobs += getJobCountSlow(child_db->impl);
-		children_unfinished_jobs += getUnfinishedJobCountSlow(child_db->impl);
-		children_sentence_jobs += _getSentenceJobCountSlow(child_db->impl);
-	}
-	total_jobs += children_total_jobs;
-	unfinished_jobs += children_unfinished_jobs;
-	sentence_jobs += children_sentence_jobs;
+
 	cerr << "Database " << db_name << ": "
 		 << "Jobs stats: total_jobs=" << total_jobs
 		 << ", unfinished_jobs=" << unfinished_jobs
@@ -959,8 +965,26 @@ int64_t Database::printJobsStats()
 	return unfinished_jobs;
 }
 
+void removeAllJobsWithStartNegative(Impl* impl) {
+	////lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
+	char* err_msg = nullptr;
+	const char* delete_sql = "DELETE FROM job WHERE start < 0";
+	if (sqlite3_exec(impl->db, delete_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+		string error = "Failed to delete jobs with start < 0: ";
+		if (err_msg) {
+			error += err_msg;
+			sqlite3_free(err_msg);
+		}
+		throw std::runtime_error(error);
+	}
+}
+
 void Database::setJobIDIncrementStart(int64_t start)
 {
+	Job sqliteisfuckingstupid;
+	sqliteisfuckingstupid.start = -1;
+	writeJob(sqliteisfuckingstupid);
+
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 	char* err_msg = nullptr;
 	string seq_sql =
@@ -998,6 +1022,8 @@ void Database::setJobIDIncrementStart(int64_t start)
 	sqlite3_finalize(stmt);
 	cerr << "Verified job_id increment start is now " << fetched_start << endl;
 	#endif
+
+	removeAllJobsWithStartNegative(impl);
 }
 
 int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
@@ -1157,29 +1183,6 @@ int64_t Database::getUnfinishedJobs(int64_t length, vector<Job>* buffer, Txn* tx
 
 	sqlite3_finalize(stmt);
 
-	// if (out_count < length) {
-	// 	#ifdef SQLITE_TEST
-	// 	cerr << "Fetching unfinished jobs from " << impl->children.size() << " child databases" << endl;
-	// 	cerr << "start out_count = " << out_count << endl;
-	// 	fprintf(stderr, "start buffer=%p\n", buffer);
-	// 	#endif
-	// 	for (auto child_db : impl->children) {
-	// 		#ifdef SQLITE_TEST
-	// 		cerr << "Fetching unfinished jobs from child database " << child_db->impl->id;
-	// 		fprintf(stderr, " into &buffer[out_count]=%p\n", &buffer[out_count]);
-	// 		#endif
-	// 		int64_t child_count = child_db->getUnfinishedJobs(length - out_count, buffer);
-	// 		#ifdef SQLITE_TEST
-	// 		cerr << "Fetched " << child_count << " unfinished jobs from child database "
-	// 			 << child_db->impl->id << endl;
-	// 		#endif
-	// 		out_count += child_count;
-	// 		if (out_count >= length) {
-	// 			break;
-	// 		}
-	// 	}
-	// }
-
 	return out_count;
 }
 
@@ -1210,7 +1213,15 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 	int rc = sqlite3_prepare_v2(txn->db, select_sql, -1, &stmt, nullptr);
 	if (rc != SQLITE_OK) {
 		string error = "Failed to prepare select statement: ";
-		error += sqlite3_errmsg(txn->db);
+		cerr << error;
+		const char* errmsg = sqlite3_errmsg(txn->db);
+		if (errmsg) {
+			cerr << errmsg << endl;
+			error += errmsg;
+		} else {
+			error += "unknown error";
+			cerr << "Unknown error in sqlite3_prepare_v2" << endl;
+		}
 		throw std::runtime_error(error);
 	}
 
@@ -1219,13 +1230,6 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 	rc = sqlite3_step(stmt);
 	if (rc != SQLITE_ROW) {
 		sqlite3_finalize(stmt);
-		for (auto child_db : impl->children) {
-			try {
-				return child_db->getJob(id);
-			} catch (const std::runtime_error&) {
-				// Ignore and try next child
-			}
-		}
 		throw std::runtime_error("Job not found with id: " + std::to_string(id));
 	}
 

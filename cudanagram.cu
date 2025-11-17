@@ -1,10 +1,42 @@
 #include <iostream>
 #include "anagrammer.hpp"
 
+#include <memory>
+#include "worker.hpp"
+#include "database.hpp"
+#include "dictionary.hpp"
+#include <stdio.h>
+#include <iostream>
+#include <unistd.h>
+#include <vector>
+#include <csignal>
+#include <cstdlib>
+#include <iostream>
+#include <chrono>
+
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 using std::cout;
 using std::cerr;
 using std::endl;
 using std::string;
+
+void handler(int sig) {
+  void *array[10];
+  size_t size;
+
+  // get void*'s for all entries on the stack
+  size = backtrace(array, 10);
+
+  // print out all the frames to stderr
+  fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  exit(1);
+}
 
 int printUsage(int argc, char** argv)
 {
@@ -12,7 +44,6 @@ int printUsage(int argc, char** argv)
 		" [--input] <input_string> "
 		"[--dictionary <dictionary_file>] "
 		"[--continue <database_name>] "
-		"[--jobs-per-batch <num>] "
 		"[--no-cpu] [--no-gpu] "
 		"" << std::endl;
 	return 1;
@@ -20,6 +51,9 @@ int printUsage(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+	signal(SIGSEGV, handler);
+	signal(SIGABRT, handler);
+
 	if (argc < 2) {
 		return printUsage(argc, argv);
 	}
@@ -27,8 +61,7 @@ int main(int argc, char** argv)
 	bool use_gpu = true;
 	string input = "";
 	string continue_db = "";
-	int64_t num_jobs_per_batch = 1073741824LL; // 161064LL;
-	bool print_dict = false;
+	//bool print_dict = false;
 	string dict_filename = "dictionary.txt";
 	for (int i = 1; i < argc; i++) {
 		string arg(argv[i]);
@@ -43,17 +76,13 @@ int main(int argc, char** argv)
 		else if (arg == "--no-gpu") {
 			use_gpu = false;
 		}
-		else if (arg == "--jobs-per-batch" && i + 1 < argc) {
-			num_jobs_per_batch = atoll(argv[i + 1]);
-			i++;
-		}
 		else if (arg == "--continue" && i + 1 < argc) {
 			continue_db = argv[i + 1];
 			i++;
 		}
-		else if (arg == "--print-dict") {
-			print_dict = true;
-		}
+		// else if (arg == "--print-dict") {
+		// 	print_dict = true;
+		// }
 		else if (arg == "--dictionary" && i + 1 < argc) {
 			dict_filename = argv[i + 1];
 			i++;
@@ -66,18 +95,11 @@ int main(int argc, char** argv)
 		}
 	}
 	anagrammer::Anagrammer a(
-		num_jobs_per_batch,
 		input,
+		use_cpu,
+		use_gpu,
 		dict_filename
 	);
-	if (print_dict) {
-		a.printDict();
-		return 0;
-	}
-	a.initWorkers(use_cpu, use_gpu);
-	cerr << "cudanagram.cu: initialized workers, starting run()" << endl;
-	a.run();
-	cerr << "cudanagram.cu: run() done, printing found sentences:" << endl;
-	a.printFoundSentences();
+
 	return 0;
 }

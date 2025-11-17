@@ -37,17 +37,23 @@ namespace database {
 			if (txn == nullptr) {
 				throw std::invalid_argument("TxnContainer constructed with null txn");
 			}
+			#ifdef SQLITE_TEST
 			cerr << "TxnContainer " << db->db_name << " constructed for database " << endl;
+			#endif
 		}
 		~TxnContainer()
 		{
 			if (!committed) {
+				#ifdef SQLITE_TEST
 				cerr << "TxnContainer " << db->db_name << " destructed without commit, committing." << endl;
+				#endif
 				db->commitTransaction(txn);
 			}
+			#ifdef SQLITE_TEST
 			else {
 				cerr << "TxnContainer " << db->db_name << " destructed after commit." << endl;
 			}
+			#endif
 		}
 		// operator Txn*()
 		// {
@@ -72,7 +78,6 @@ namespace database {
 		~Database();
 		Database();
 		Database(std::string existing_db_name);
-		Database(Database* other);
 		// Write job to db, where its ID will be created
 		void writeJob(job::Job);
 		void writeJob(job::Job, Txn* txn);
@@ -117,7 +122,6 @@ namespace database {
 			Txn* txn
 		);
 		void printFoundSentences(Dictionary* dict);
-		void addChild(Database* child);
 		void setJobIDIncrementStart(int64_t start);
 		void getFoundSentenceJobs(vector<Job>& out_jobs);
 		void getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn);

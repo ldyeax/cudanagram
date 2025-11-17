@@ -139,7 +139,7 @@ private:
 public:
         int device_id;
 
-		void doJob(Job* d_input_jobs, int64_t p_count) override
+		void doJob(Job* d_input_jobs, int64_t p_count)
 		{
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: processing %ld jobs on device %d\n", p_count, device_id);
@@ -181,6 +181,7 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: copied results numbers list back to host from device %d\n", device_id);
 			#endif
+			Job* h_write_pointer = new_jobs_buffer;
 			int64_t num_total_new_jobs = 0;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = h_num_new_jobs[i];
@@ -194,20 +195,14 @@ public:
 				// std::getline(std::cin, dummy);
 				#endif
 				num_total_new_jobs += num_new_jobs_i;
-				Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
+				//Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
 				gpuErrChk(cudaMemcpy(
-					tmp,
+					h_write_pointer,
 					d_new_jobs + (i * max_new_jobs_per_job),
 					sizeof(Job) * num_new_jobs_i,
 					cudaMemcpyDeviceToHost
 				));
-				for (int64_t j = 0; j < num_new_jobs_i; j++) {
-					last_result.new_jobs.push_back(*tmp);
-					#ifdef TEST_WORKER_GPU
-					tmp->print();
-					#endif
-					tmp++;
-				}
+				h_write_pointer += num_new_jobs_i;
 			}
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: total new jobs produced: %ld\n", num_total_new_jobs);
@@ -218,9 +213,6 @@ public:
 		void doJobs()
         {
 			int64_t jobs_done = 0;
-			int64_t num_unfinished_jobs = unfinished_jobs.size();
-
-			last_result.new_jobs.clear();
 
 			while (jobs_done < num_unfinished_jobs) {
 				memset(h_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
@@ -265,118 +257,12 @@ public:
 			// sizeof(Dictionary) + max_input_jobs_per_iteration * (sizeof(Job) + sizeof(Job) * max_new_jobs_per_job + sizeof(int64_t)) < totalMem
 			// max_input_jobs_per_iteration < (totalMem - sizeof(Dictionary))/(sizeof(Job) + sizeof(Job) * max_new_jobs_per_job + sizeof(int64_t))
 		}
-        void loop() override
-        {
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
-			#endif
-			//h_input_jobs = new Job[max_input_jobs_per_iteration];
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating " << max_new_jobs_per_job * max_input_jobs_per_iteration << " new jobs on host for device " << device_id << endl;
-			#endif
-			h_new_jobs_tmp = new Job[max_new_jobs_per_job * max_input_jobs_per_iteration];
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating " << max_input_jobs_per_iteration << " num_new_jobs on host for device " << device_id << endl;
-			#endif
-			h_num_new_jobs = new int64_t[max_input_jobs_per_iteration];
-
-            gpuErrChk(cudaSetDevice(device_id));
-			gpuErrChk(cudaDeviceSynchronize());
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating sizeof(Dictionary)=" << sizeof(Dictionary) << " bytes on device " << device_id << endl;
-			#endif
-            gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
-			gpuErrChk(cudaDeviceSynchronize());
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocated d_dict on device " << device_id << endl;
-			#endif
-            gpuErrChk(cudaMemcpy(
-                d_dict,
-                dict,
-                sizeof(Dictionary),
-                cudaMemcpyHostToDevice
-            ));
-			gpuErrChk(cudaDeviceSynchronize());
-			#ifdef TEST_WORKER_GPU
-			cerr << "Copied Dictionary to device " << device_id << endl;
-			#endif
-
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
-				 << sizeof(Job) * max_input_jobs_per_iteration
-				 << " bytes for d_input_jobs on device " << device_id << endl;
-			#endif
-			gpuErrChk(cudaMalloc(
-				&d_input_jobs,
-				sizeof(Job) * max_input_jobs_per_iteration
-			));
-			gpuErrChk(cudaDeviceSynchronize());
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocated d_input_jobs on device " << device_id << endl;
-			#endif
-
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating sizeof(Job)*" << (max_new_jobs_per_job * max_input_jobs_per_iteration)
-				 << "="
-				 << sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
-				 << " bytes for d_new_jobs on device " << device_id << endl;
-			#endif
-			gpuErrChk(cudaMalloc(
-				&d_new_jobs,
-				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
-			));
-			gpuErrChk(cudaDeviceSynchronize());
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocated d_new_jobs on device " << device_id << endl;
-			#endif
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating sizeof(int64_t)*" << max_input_jobs_per_iteration << "="
-				 << sizeof(int64_t) * max_input_jobs_per_iteration
-				 << " bytes for d_num_new_jobs on device " << device_id << endl;
-			#endif
-			gpuErrChk(cudaMalloc(
-				&d_num_new_jobs,
-				sizeof(int64_t) * max_input_jobs_per_iteration
-			));
-			gpuErrChk(cudaDeviceSynchronize());
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocated d_num_new_jobs on device " << device_id << endl;
-			#endif
-			gpuErrChk(cudaMemset(
-				d_num_new_jobs,
-				0,
-				sizeof(int64_t) * max_input_jobs_per_iteration
-			));
-
-			gpuErrChk(cudaDeviceSynchronize());
-
-            while (true) {
-                if (ready_to_start) {
-					ready_to_start = false;
-#ifdef TEST_WORKER_GPU
-					fprintf(stderr, "Worker_GPU::loop: starting to process jobs on device %d\n", device_id);
-#endif
-                    doJobs();
-#ifdef TEST_WORKER_GPU
-					fprintf(stderr, "Worker_GPU::loop: done processing jobs, writing results to database\n");
-					fprintf(stderr, "Worker_GPU::loop: number of new jobs: %ld\n", last_result.new_jobs.size());
-#endif
-					auto txn = thread_db->beginTransaction();
-					WriteResult(&last_result, dict, txn);
-					finished = true;
-                }
-                else {
-                    //std::this_thread::yield();
-					std::this_thread::sleep_for(std::chrono::microseconds(100));
-                }
-            }
-        }
 
 
 		void setLimits()
 		{
 			// Initialize max_new_jobs_per_job based on dictionary size
-			max_new_jobs_per_job = dict->frequency_maps_length;
+			max_new_jobs_per_job = dictionary->frequency_maps_length;
 
 			// No allocations needed
 			cerr << "Setting malloc heap size to 0 on device " << device_id << endl;
@@ -447,55 +333,173 @@ public:
 			);
 		}
 
-        Worker_GPU(
-			Database* p_db, Dictionary* p_dict, int p_device_id
-		) : Worker(p_db, p_dict)
-        {
-            device_id = p_device_id;
-			gpuErrChk(cudaSetDevice(p_device_id));
+		void init() override
+		{
+			gpuErrChk(cudaSetDevice(device_id));
+			gpuErrChk(cudaDeviceSynchronize());
 
 			setLimits();
 
-            h_thread = std::thread(&Worker_GPU::loop, this);
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
+			#endif
+			//h_input_jobs = new Job[max_input_jobs_per_iteration];
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocating " << max_new_jobs_per_job * max_input_jobs_per_iteration << " new jobs on host for device " << device_id << endl;
+			#endif
+			h_new_jobs_tmp = new Job[max_new_jobs_per_job * max_input_jobs_per_iteration];
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocating " << max_input_jobs_per_iteration << " num_new_jobs on host for device " << device_id << endl;
+			#endif
+			h_num_new_jobs = new int64_t[max_input_jobs_per_iteration];
+
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocating sizeof(Dictionary)=" << sizeof(Dictionary) << " bytes on device " << device_id << endl;
+			#endif
+            gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
+			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocated d_dict on device " << device_id << endl;
+			#endif
+            gpuErrChk(cudaMemcpy(
+                d_dict,
+                dictionary,
+                sizeof(Dictionary),
+                cudaMemcpyHostToDevice
+            ));
+			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
+			cerr << "Copied Dictionary to device " << device_id << endl;
+			#endif
+
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
+				 << sizeof(Job) * max_input_jobs_per_iteration
+				 << " bytes for d_input_jobs on device " << device_id << endl;
+			#endif
+			gpuErrChk(cudaMalloc(
+				&d_input_jobs,
+				sizeof(Job) * max_input_jobs_per_iteration
+			));
+			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocated d_input_jobs on device " << device_id << endl;
+			#endif
+
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocating sizeof(Job)*" << (max_new_jobs_per_job * max_input_jobs_per_iteration)
+				 << "="
+				 << sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
+				 << " bytes for d_new_jobs on device " << device_id << endl;
+			#endif
+			gpuErrChk(cudaMalloc(
+				&d_new_jobs,
+				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
+			));
+			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocated d_new_jobs on device " << device_id << endl;
+			#endif
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocating sizeof(int64_t)*" << max_input_jobs_per_iteration << "="
+				 << sizeof(int64_t) * max_input_jobs_per_iteration
+				 << " bytes for d_num_new_jobs on device " << device_id << endl;
+			#endif
+			gpuErrChk(cudaMalloc(
+				&d_num_new_jobs,
+				sizeof(int64_t) * max_input_jobs_per_iteration
+			));
+			gpuErrChk(cudaDeviceSynchronize());
+			#ifdef TEST_WORKER_GPU
+			cerr << "Allocated d_num_new_jobs on device " << device_id << endl;
+			#endif
+			gpuErrChk(cudaMemset(
+				d_num_new_jobs,
+				0,
+				sizeof(int64_t) * max_input_jobs_per_iteration
+			));
+
+			gpuErrChk(cudaDeviceSynchronize());
+		}
+
+
+        Worker_GPU(
+			int p_device_id,
+			Dictionary* p_dict,
+			Job* p_initial_jobs,
+			int64_t p_num_initial_jobs,
+			shared_ptr<vector<Job>> non_sentence_finished_jobs
+		)
+		: Worker(
+			p_dict,
+			p_initial_jobs,
+			p_num_initial_jobs,
+			non_sentence_finished_jobs
+		)
+        {
+            device_id = p_device_id;
         }
 
-        int32_t numThreads() override {
-#ifdef TEST_WORKER_GPU
-			return 1;
-#endif
-            return worker_gpu_blocks * worker_gpu_threads_per_block;
-        }
+//         int64_t numThreads() override {
+// #ifdef TEST_WORKER_GPU
+// 			return 1;
+// #endif
+//             return worker_gpu_blocks * worker_gpu_threads_per_block;
+//         }
 
 
     };
     class WorkerFactory_GPU : public WorkerFactory {
     public:
-        int64_t Spawn(
-            Worker** buffer,
-            int64_t max,
-            database::Database* db,
-            dictionary::Dictionary* dict
+		/**
+		 * CPU worker factory would return number of system threads,
+		 * GPU would return number of CUDA threads it can use across
+		 *  all available GPUs
+		 **/
+		virtual int64_t getTotalThreads() override
+		{
+			int32_t num_devices = deviceCount();
+			int64_t total_threads = 0;
+			for (int32_t i = 0; i < num_devices; i++) {
+				cudaDeviceProp deviceProp;
+				gpuErrChk(cudaGetDeviceProperties(&deviceProp, i));
+				total_threads += deviceProp.maxThreadsPerMultiProcessor * deviceProp.multiProcessorCount;
+			}
+			return total_threads;
+		}
+        virtual int64_t spawn(
+			atomic<Worker*>* buffer,
+			Dictionary* dict,
+			/**
+			 * May have finished jobs duplicated
+			 **/
+			Job* initial_jobs,
+			int64_t num_initial_jobs,
+			shared_ptr<vector<Job>> non_sentence_finished_jobs
         ) override {
-            int32_t num_devices = deviceCount();
-            int64_t num_to_spawn
-				= std::min(max, (int64_t)num_devices);
-#ifdef TEST_WORKER_GPU
-			num_to_spawn = 1;
-#endif
-            for (int64_t i = 0; i < num_to_spawn; i++) {
-                buffer[i] = new Worker_GPU(
-					db,
-					dict,
-					i
-				);
-            }
-            return num_to_spawn;
+            int num_devices = deviceCount();
+			Job* device_initial_jobs = initial_jobs;
+			int64_t jobs_per_device = num_initial_jobs / num_devices;
+			for (int i = 0; i < num_devices; i++) {
+				std::thread t2([=]{
+					buffer[i].store(new Worker_GPU(
+						i,
+						dict,
+						device_initial_jobs + jobs_per_device * i,
+						jobs_per_device,
+						non_sentence_finished_jobs
+					));
+					buffer[i].load()->start();
+				});
+				t2.detach();
+			}
+			return num_devices;
         }
     };
 }
 
 
-WorkerFactory* worker::getWorkerFactory_GPU(database::Database* db, dictionary::Dictionary* dict)
+WorkerFactory* worker::getWorkerFactory_GPU()
 {
 	static WorkerFactory* ret = new worker_GPU::WorkerFactory_GPU();
 	return ret;

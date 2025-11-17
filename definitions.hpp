@@ -1,3 +1,5 @@
+#define JobID_t int64_t
+#define FrequencyMapIndex_t int32_t
 #pragma once
 #include <cstdint>
 #define databaseType_t int8_t

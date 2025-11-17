@@ -36,47 +36,84 @@ namespace worker {
 		 *  either copied from the initial seeding
 		 *  or fetched from our own database in later iterations
 		 **/
-		Job* unfinished_jobs;
-		int64_t num_unfinished_jobs;
-		Database* database;
-		Dictionary* dictionary;
-		virtual int64_t getBufferSize()
+		Job* unfinished_jobs = nullptr;
+		int64_t num_unfinished_jobs = 0;
+		Job* new_jobs_buffer = nullptr;
+		int64_t num_new_jobs = 0;
+		Database* database = nullptr;
+		Dictionary* dictionary = nullptr;
+		virtual int64_t getUnfinishedJobsBufferSize()
 		{
+			//return 16384L;
 			return 65535L;
+		}
+		int64_t getNewJobsBufferSize()
+		{
+			if (dictionary == nullptr) {
+				cerr << "dictionary is null in getNewJobsBufferSize" << endl;
+				throw new std::runtime_error(
+					"dictionary is null in getNewJobsBufferSize"
+				);
+			}
+			return getUnfinishedJobsBufferSize() * dictionary->frequency_maps_length;
 		}
 		/**
 		 * Child class is expected to implement init,
 		 *  which will be called right before the loop starts
 		 **/
 		virtual void init() = 0;
+		void getUnfinishedJobsFromDatabase()
+		{
+			num_unfinished_jobs = database->getUnfinishedJobs(
+				getUnfinishedJobsBufferSize(),
+				unfinished_jobs
+			);
+		}
+		virtual void doJobs() = 0;
+		void writeNewJobsToDatabase()
+		{
+			if (num_new_jobs > 0) {
+				database->writeNewJobs(
+					new_jobs_buffer,
+					num_new_jobs
+				);
+				num_new_jobs = 0;
+			}
+		}
 		void loop()
 		{
+			static int id_ = 0;
+			int id = ++id_;
 			init();
+			cerr << "Worker initialized, entering main loop" << endl;
 			worker_status = running;
+			getUnfinishedJobsFromDatabase();
 			while (num_unfinished_jobs > 0) {
-				getJobsFromDatabase();
-				if (num_unfinished_jobs <= 0) {
-					break;
-				}
+
+				cerr << "Worker " << id << " starting doJobs with "
+					<< num_unfinished_jobs << " unfinished jobs" << endl;
+
 				doJobs();
+				writeNewJobsToDatabase();
+				database->printFoundSentences(dictionary);
+				getUnfinishedJobsFromDatabase();
 			}
+			database->printFoundSentences(dictionary);
 			worker_status = ended;
 		}
 	public:
-		volatile WorkerStatus worker_status = uninitialized;
-		volatile bool failed = false;
+		atomic<WorkerStatus> worker_status = uninitialized;
+		atomic<bool> failed = false;
 		/**
 		 * Worker will write to this in its init function
 		 **/
-		char* volatile database_name = nullptr;
-
+		atomic<char*> database_name = nullptr;
+		void start() {
+			cerr << "Worker starting loop()" << endl;
+			loop();
+		}
 		Worker(
-			/**
-			 * Jobs will be created starting with this ID,
-			 *  though the initial jobs given may have (
-			 *   almost certainly will have) lower IDs
-			 **/
-			int64_t p_start_id,
+			Dictionary* dict,
 			/**
 			 * Buffer to copy initial jobs from
 			 **/
@@ -84,33 +121,123 @@ namespace worker {
 			/**
 			 * Number of jobs that will be copied from buffer
 			 **/
-			int64_t p_num_initial_jobs
+			int64_t p_num_initial_jobs,
+			shared_ptr<vector<Job>> non_sentence_finished_jobs
 		)
 		{
 			try {
 				if (p_initial_jobs == nullptr) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "Initial jobs is null in Worker constructor" << endl;
+					}
 					throw;
 				}
-				start_id = p_start_id;
-				unfinished_jobs = new Job[getBufferSize()];
-				num_unfinished_jobs = p_num_initial_jobs;
-				memcpy(
-					unfinished_jobs,
+				else {
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Dictionary is null in Worker constructor" << endl;
+				}
+				if (dict == nullptr) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "Dictionary is null in Worker constructor" << endl;
+					}
+					throw;
+				}
+				else {
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Initial jobs is valid in Worker constructor" << endl;
+				}
+
+				database = new Database();
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					database_name = (char*)database->db_name.c_str();
+					cerr << "Worker database name: " << database_name << endl;
+				}
+				database->setJobIDIncrementStart(0x7FFFFFFF);
+				dictionary = dict;
+				unfinished_jobs = new Job[getUnfinishedJobsBufferSize()];
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Allocated unfinished jobs buffer of size "
+						<< getUnfinishedJobsBufferSize() << endl;
+				}
+				// num_unfinished_jobs = p_num_initial_jobs;
+				// memcpy(
+				// 	unfinished_jobs,
+				// 	p_initial_jobs,
+				// 	sizeof(Job) * p_num_initial_jobs
+				// );
+				// {
+				// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
+				// 	cerr << "Copied initial jobs into worker buffer" << endl;
+				// }
+				cerr << p_num_initial_jobs << " initial jobs: " << endl;
+				for (int64_t i = 0; i < p_num_initial_jobs; i++) {
+					#ifdef DEBUG_WORKER_CPU
+					cerr << "Initial job " << i << ": ";
+					p_initial_jobs[i].print();
+					#endif
+					if (p_initial_jobs[i].frequency_map.isAllZero()) {
+						cerr << "ERROR: initial job has all-zero frequency map!" << endl;
+						throw;
+					}
+				}
+				database->writeNewJobs(
 					p_initial_jobs,
-					sizeof(Job) * p_num_initial_jobs
+					p_num_initial_jobs
 				);
-				loop();
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Inserted initial jobs into worker database" << endl;
+				}
+
+				new_jobs_buffer = new Job[getNewJobsBufferSize()];
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Allocated new jobs buffer of size "
+						<< getNewJobsBufferSize() << endl;
+				}
+				database->insertJobsWithIDs(
+					non_sentence_finished_jobs->data(),
+					non_sentence_finished_jobs->size()
+				);
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Inserted non-sentence finished jobs into worker database" << endl;
+				}
+				for (auto& job : *non_sentence_finished_jobs) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "Non-sentence finished job inserted: ";
+						job.print();
+						database->getJob(job.job_id).print();
+					}
+				}
+			}
+			// catch all exception types
+			catch (std::exception& e) {
+				failed = true;
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Worker caught exception in constructor: " << e.what() << std::endl;
+				}
+				throw e;
 			}
 			catch (...) {
 				failed = true;
-				// todo: throw full exception
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Worker caught unknown exception in constructor" << std::endl;
+				}
+				std::rethrow_exception(std::current_exception());
 			}
 		}
 
 	};
 	class WorkerFactory {
 	public:
-		virtual int64_t getNumWorkers() = 0;
 		/**
 		 * CPU worker factory would return number of system threads,
 		 * GPU would return number of CUDA threads it can use across
@@ -121,17 +248,16 @@ namespace worker {
 		 * Returns number of workers spawned
 		 **/
 		virtual int64_t spawn(
-			Worker** buffer,
+			atomic<Worker*>* buffer,
 			Dictionary* dict,
-			int64_t min_new_job_id,
-			int64_t max_new_job_id,
 			/**
 			 * May have finished jobs duplicated
 			 **/
 			Job* initial_jobs,
-			int64_t num_initial_jobs
+			int64_t num_initial_jobs,
+			shared_ptr<vector<Job>> non_sentence_finished_jobs
 		) = 0;
 	};
-	extern WorkerFactory* getWorkerFactory_CPU(database::Database* db, dictionary::Dictionary* dict);
-	extern WorkerFactory* getWorkerFactory_GPU(database::Database* db, dictionary::Dictionary* dict);
+	extern WorkerFactory* getWorkerFactory_CPU();
+	extern WorkerFactory* getWorkerFactory_GPU();
 }

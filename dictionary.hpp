@@ -1,7 +1,7 @@
 #pragma once
-#include <memory>
-#include "job.hpp";
 #include "definitions.hpp"
+#include <memory>
+#include "job.hpp"
 #include "frequency_map.hpp"
 #include <stdint.h>
 #include <cstdint>

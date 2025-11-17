@@ -1,11 +1,12 @@
 #pragma once
+#define JobID_t int64_t
 #include <cstdint>
 #include <stdint.h>
 #include "definitions.hpp"
+#include "frequency_map.hpp"
 #include "dictionary.hpp"
 #include <iostream>
 #include <cstdio>
-#define JobID_t int64_t
 using std::endl;
 using std::cout;
 namespace job {

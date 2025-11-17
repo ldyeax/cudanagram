@@ -52,9 +52,6 @@ void handle_sigint(int signal)
     std::quick_exit(1);
 }
 
-// also print stack trace on exceptions
-
-
 
 int main(int argc, char* argv[])
 {
@@ -65,13 +62,13 @@ int main(int argc, char* argv[])
 
 	string dummy;
 	string input = "HELLOWORLD";
+	//string input = "twomilkmengocomedy";
 	cerr << "Input: " << input << endl;
 	anagrammer::Anagrammer a(
-		"HELLOWORLD",
+		input,
 		true,
 		false,
 		"worker_cpu_test_dictionary.txt"
-		//"twomilkmengocomedy"
 	);
 
 	return 0;

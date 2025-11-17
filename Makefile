@@ -23,12 +23,13 @@ LSQLITE3 = -lsqlite3
 
 NVCC = nvcc
 #NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Wno-unused-result
-NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Wno-unused-result
+NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Xcompiler -Wno-unused-result
 #LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx -lsqlite3
 LDFLAGS = -ltinfo  -lsqlite3
 
 TARGET = cudanagram
 SRC = cudanagram.cu
+SRC_CPP = cudanagram.cpp
 TEST_CAP = "capabilities_test"
 TEST_CAP_SRC = capabilities_test.cu
 TEST_DB_SRC = database_test.cpp
@@ -123,7 +124,7 @@ $(TARGET): $(SRC)
 		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
 		$(DICTIONARY_O) $(FM_O) \
 		-o $(TARGET) \
-		$(SRC) anagrammer.cpp worker.cpp \
+		$(SRC) \
 		$(LDFLAGS)
 
 clean:
@@ -135,6 +136,14 @@ clean:
 	rm -f worker_cpu_test
 	rm -f sqlite_test
 	rm -f *.o
+
+cpu:
+	$(GPP) $(GPP_FLAGS) \
+		cudanagram.cpp \
+		worker_cpu.cpp worker_gpu.cpp \
+		$(DICTIONARY_CPP) $(DB_SRC) $(AVX_SRC) $(FM_CPP) \
+		-o $(TARGET) \
+		$(GPP_LDFLAGS)
 
 pqxx:
 	bash ./build_pqxx.sh
@@ -181,7 +190,7 @@ worker_cpu_test:
 	$(GPP) $(GPP_DEBUG_FLAGS) \
 		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
 		-o worker_cpu_test \
-		anagrammer.cpp worker.cpp worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
+		worker_cpu_test.cpp dictionary.cpp frequency_map.cpp  \
 		$(GPP_LDFLAGS)
 # worker_cpu_test_2:
 # 	$(GPP) $(GPP_DEBUG_FLAGS) -c $(AVX_SRC)
