@@ -119,9 +119,10 @@ namespace database {
 			JobID_t parent_id,
 			Dictionary* dict,
 			shared_ptr<vector<FrequencyMapIndex_t>> indices,
-			Txn* txn
+			Txn* txn,
+			FILE* output_file
 		);
-		void printFoundSentences(Dictionary* dict);
+		void printFoundSentences(Dictionary* dict, FILE* output_file);
 		void setJobIDIncrementStart(int64_t start);
 		void getFoundSentenceJobs(vector<Job>& out_jobs);
 		void getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn);

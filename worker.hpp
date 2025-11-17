@@ -90,6 +90,12 @@ namespace worker {
 			//cerr << "Worker initialized, entering main loop" << endl;
 			worker_status = running;
 			getUnfinishedJobsFromDatabase();
+			string output_file_name = database->db_name + "_worker_" + std::to_string(id) + "_output.txt";
+			FILE* output_file = fopen(output_file_name.c_str(), "w");
+			if (output_file == nullptr) {
+				cerr << "Worker " << id << " failed to open output file " << output_file_name << endl;
+				throw std::runtime_error("Failed to open worker output file");
+			}
 			while (num_unfinished_jobs > 0) {
 
 				// cerr << "Worker " << id << " starting doJobs with "
@@ -99,11 +105,13 @@ namespace worker {
 				writeNewJobsToDatabase();
 				{
 					std::lock_guard<std::mutex> lock(global_print_mutex);
-					database->printFoundSentences(dictionary);
+					database->printFoundSentences(dictionary, output_file);
 				}
+				fflush(output_file);
 				getUnfinishedJobsFromDatabase();
 			}
-			database->printFoundSentences(dictionary);
+			database->printFoundSentences(dictionary, output_file);
+			fclose(output_file);
 			worker_status = ended;
 		}
 	public:
