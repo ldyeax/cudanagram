@@ -1,5 +1,5 @@
 #define DEBUG_WORKER_CPU 1
-#define DEBUG_WORKER_GPU 1
+#define TEST_WORKER_GPU 1
 #define CUDANAGRAM_TESTING 1
 #include "avx.hpp"
 #include "frequency_map.cu"
