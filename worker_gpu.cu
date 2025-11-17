@@ -345,7 +345,8 @@ public:
 				 << freeMem << " bytes on device " << device_id << endl;
 
 			//#endif
-			worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
+			//worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
+			worker_gpu_threads_per_block = 512;
 			// round max_input_jobs_per_iteration to the nearest multiple of worker_gpu_threads_per_block
 			#ifdef TEST_WORKER_GPU
 			max_input_jobs_per_iteration = 1;
