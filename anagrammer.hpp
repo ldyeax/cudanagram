@@ -69,8 +69,8 @@ namespace anagrammer {
 			for (auto& unfinished_job : *initial_jobs.unfinished_jobs) {
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Initial unfinished job: ";
-					unfinished_job.print();
+					// cerr << "Initial unfinished job: ";
+					// unfinished_job.print();
 					if (unfinished_job.finished) {
 						cerr << "ERROR: initial unfinished job is marked finished!" << endl;
 						throw;
