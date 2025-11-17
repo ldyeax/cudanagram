@@ -291,7 +291,7 @@ public:
 				#endif
 				jobs_done += num_input_jobs;
 			}
-			cerr << "End of doJobs num_new_jobs=" << num_new_jobs << endl;
+			//cerr << "End of doJobs num_new_jobs=" << num_new_jobs << endl;
         }
 		int64_t estimatedMemoryUsage()
 		{
