@@ -207,14 +207,14 @@ namespace worker {
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
 					//cerr << "Inserted non-sentence finished jobs into worker database" << endl;
 				}
-				for (auto& job : *non_sentence_finished_jobs) {
-					{
-						//std::lock_guard<std::mutex> lock(global_print_mutex);
-						//cerr << "Non-sentence finished job inserted: ";
-						job.print();
-						database->getJob(job.job_id).print();
-					}
-				}
+				// for (auto& job : *non_sentence_finished_jobs) {
+				// 	{
+				// 		//std::lock_guard<std::mutex> lock(global_print_mutex);
+				// 		//cerr << "Non-sentence finished job inserted: ";
+				// 		job.print();
+				// 		database->getJob(job.job_id).print();
+				// 	}
+				// }
 			}
 			// catch all exception types
 			catch (std::exception& e) {
