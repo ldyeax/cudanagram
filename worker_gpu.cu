@@ -144,6 +144,9 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: processing %ld jobs on device %d\n", p_count, device_id);
 			fprintf(stderr, "Worker_GPU::doJob: max_input_jobs_per_iteration=%ld\n", max_input_jobs_per_iteration);
+			for (int64_t i = 0; i < p_count; i++) {
+				d_input_jobs[i].print();
+			}
 			#endif
 			// launch kernel
 			dim3 blocks(worker_gpu_blocks);
@@ -227,7 +230,7 @@ public:
 				// 	h_input_jobs[i] = *(unfinished_jobs[jobs_start + i]);
 				// }
 				#ifdef TEST_WORKER_GPU
-				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end - 1 << " ("
+				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end << " ("
 					 << num_input_jobs << " jobs).." << endl;
 				#endif
 				// copy input jobs to device
