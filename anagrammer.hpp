@@ -66,6 +66,7 @@ namespace anagrammer {
 				return;
 			}
 
+			#ifdef CUDANAGRAM_TESTING
 			for (auto& unfinished_job : *initial_jobs.unfinished_jobs) {
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
@@ -85,6 +86,7 @@ namespace anagrammer {
 					}
 				}
 			}
+			#endif
 
 			int64_t total_jobs = initial_jobs.unfinished_jobs->size();
 

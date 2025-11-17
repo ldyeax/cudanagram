@@ -173,31 +173,31 @@ namespace worker {
 				// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
 				// 	cerr << "Copied initial jobs into worker buffer" << endl;
 				// }
-				cerr << p_num_initial_jobs << " initial jobs: " << endl;
+				//cerr << p_num_initial_jobs << " initial jobs: " << endl;
+				#ifdef DEBUG_WORKER_CPU
 				for (int64_t i = 0; i < p_num_initial_jobs; i++) {
-					#ifdef DEBUG_WORKER_CPU
 					cerr << "Initial job " << i << ": ";
 					p_initial_jobs[i].print();
-					#endif
 					if (p_initial_jobs[i].frequency_map.isAllZero()) {
 						cerr << "ERROR: initial job has all-zero frequency map!" << endl;
 						throw;
 					}
 				}
+				#endif
 				database->writeNewJobs(
 					p_initial_jobs,
 					p_num_initial_jobs
 				);
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Inserted initial jobs into worker database" << endl;
+					//cerr << "Inserted initial jobs into worker database" << endl;
 				}
 
 				new_jobs_buffer = new Job[getNewJobsBufferSize()];
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Allocated new jobs buffer of size "
-						<< getNewJobsBufferSize() << endl;
+					// cerr << "Allocated new jobs buffer of size "
+					// 	<< getNewJobsBufferSize() << endl;
 				}
 				database->insertJobsWithIDs(
 					non_sentence_finished_jobs->data(),
@@ -205,12 +205,12 @@ namespace worker {
 				);
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "Inserted non-sentence finished jobs into worker database" << endl;
+					//cerr << "Inserted non-sentence finished jobs into worker database" << endl;
 				}
 				for (auto& job : *non_sentence_finished_jobs) {
 					{
 						//std::lock_guard<std::mutex> lock(global_print_mutex);
-						cerr << "Non-sentence finished job inserted: ";
+						//cerr << "Non-sentence finished job inserted: ";
 						job.print();
 						database->getJob(job.job_id).print();
 					}
