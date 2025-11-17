@@ -255,7 +255,7 @@ public:
 		void doJobs()
         {
 			int64_t jobs_done = 0;
-
+			num_new_jobs = 0;
 			while (jobs_done < num_unfinished_jobs) {
 				memset(h_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
 
