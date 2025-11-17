@@ -98,15 +98,17 @@ namespace anagrammer {
 				auto& f = factories[i];
 				int64_t num_jobs_for_factory
 					= f->getTotalThreads() * jobs_per_thread;
-				if (num_jobs_taken + num_jobs_for_factory != total_jobs) {
+				cerr << "num_jobs_for_factory.1 " << i << " = "
+					<< num_jobs_for_factory << endl;
+				if (num_jobs_taken + num_jobs_for_factory >= total_jobs) {
 					num_jobs_for_factory = total_jobs - num_jobs_taken;
 				}
 				num_jobs_taken += num_jobs_for_factory;
 
-				cerr << "num_jobs_for_factory " << i << " = "
+				cerr << "num_jobs_for_factory.2 " << i << " = "
 					<< num_jobs_for_factory << endl;
 
-				continue;
+				//continue;
 
 				// Get the pointer from the atomic and offset it
 				atomic<Worker*>* workers_ptr = workers.load();
