@@ -411,6 +411,9 @@ void Database::writeJob(job::Job job, Txn* txn) {
 
 void Database::writeNewJobs(job::Job* jobs, int64_t length)
 {
+	if (length <= 0) {
+		throw std::invalid_argument("Invalid length in writeNewJobs");
+	}
 	Txn txn(impl);
 	writeNewJobs(jobs, length, &txn);
 	txn.commit();

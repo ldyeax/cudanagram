@@ -153,7 +153,7 @@ public:
 				//cerr << "Adjusted jobs to give: " << jobs_to_give << endl;
 			}
 			if (jobs_to_give <= 0) {
-				//cerr << "No more jobs to give, breaking spawn loop" << endl;
+				cerr << "No more jobs to give, breaking spawn loop" << endl;
 				break;
 			}
 			Job* thread_initial_jobs = initial_jobs;
