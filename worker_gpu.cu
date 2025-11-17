@@ -22,7 +22,7 @@ namespace worker_GPU {
 		int64_t num_jobs
 	)
 	{
-		printf("---printJobsKernel launched %p %d\n", d_jobs, num_jobs);
+		printf("---printJobsKernel launched %p %ld\n", d_jobs, num_jobs);
 		int64_t index = blockIdx.x * blockDim.x + threadIdx.x;
 		if (index >= num_jobs) {
 			printf("printJobsKernel: index %ld >= num_jobs %ld, returning\n", index, num_jobs);
@@ -180,7 +180,27 @@ public:
 				d_num_new_jobs,
 				p_count
 			);
+			auto kernel_launch_error = cudaGetLastError();
+			if (kernel_launch_error != cudaSuccess) {
+				fprintf(
+					stderr,
+					"Worker_GPU::doJob: kernel launch failed on device %d: %s\n",
+					device_id,
+					cudaGetErrorString(kernel_launch_error)
+				);
+				throw std::runtime_error("Kernel launch failed");
+			}
 			gpuErrChk(cudaDeviceSynchronize());
+			kernel_launch_error = cudaGetLastError();
+			if (kernel_launch_error != cudaSuccess) {
+				fprintf(
+					stderr,
+					"Worker_GPU::doJob: kernel launch failed on device %d: %s\n",
+					device_id,
+					cudaGetErrorString(kernel_launch_error)
+				);
+				throw std::runtime_error("Kernel launch failed");
+			}
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: kernel finished on device %d\n", device_id);
 			#endif
