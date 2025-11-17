@@ -195,33 +195,43 @@ namespace worker {
 					p_initial_jobs,
 					p_num_initial_jobs
 				);
+				#ifdef DEBUG_WORKER_CPU
 				{
-					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					//cerr << "Inserted initial jobs into worker database" << endl;
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr <<
+					 "Inserted initial jobs into worker database" << endl;
 				}
+				#endif
 
 				new_jobs_buffer = new Job[getNewJobsBufferSize()];
+				#ifdef DEBUG_WORKER_CPU
 				{
-					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					// cerr << "Allocated new jobs buffer of size "
-					// 	<< getNewJobsBufferSize() << endl;
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Allocated new jobs buffer of size "
+						<< getNewJobsBufferSize() << endl;
+					fprintf(stderr, "non_sentence_finished_jobs = %p\n", (void*)non_sentence_finished_jobs.get());
 				}
-				database->insertJobsWithIDs(
-					non_sentence_finished_jobs->data(),
-					non_sentence_finished_jobs->size()
-				);
+				#endif
+				if (non_sentence_finished_jobs->size() > 0) {
+					database->insertJobsWithIDs(
+						non_sentence_finished_jobs->data(),
+						non_sentence_finished_jobs->size()
+					);
+				}
+				#ifdef DEBUG_WORKER_CPU
 				{
-					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					//cerr << "Inserted non-sentence finished jobs into worker database" << endl;
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Inserted non-sentence finished jobs into worker database" << endl;
 				}
-				// for (auto& job : *non_sentence_finished_jobs) {
-				// 	{
-				// 		//std::lock_guard<std::mutex> lock(global_print_mutex);
-				// 		//cerr << "Non-sentence finished job inserted: ";
-				// 		job.print();
-				// 		database->getJob(job.job_id).print();
-				// 	}
-				// }
+				for (auto& job : *non_sentence_finished_jobs) {
+					{
+						std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "Non-sentence finished job inserted: ";
+						job.print();
+						database->getJob(job.job_id).print();
+					}
+				}
+				#endif
 			}
 			// catch all exception types
 			catch (std::exception& e) {

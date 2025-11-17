@@ -381,9 +381,14 @@ void Database::connect()
 
 	if (sqlite3_exec(impl->db, pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
 		string error = "Failed to set pragmas: ";
+		cerr << error << endl;
 		if (err_msg) {
+			cerr << err_msg << endl;
 			error += err_msg;
 			sqlite3_free(err_msg);
+		}
+		else {
+			cerr << " (no error message available)" << endl;
 		}
 		throw std::runtime_error(error);
 	}
@@ -570,7 +575,15 @@ void Database::insertJobsWithIDs(job::Job* jobs, int64_t length, Txn* txn) {
 	int rc = sqlite3_prepare_v2(txn->db, insert_sql, -1, &stmt, nullptr);
 	if (rc != SQLITE_OK) {
 		string error = "Failed to prepare insert statement: ";
-		error += sqlite3_errmsg(txn->db);
+		cerr << error;
+		const char* errmsg = sqlite3_errmsg(txn->db);
+		if (errmsg != NULL) {
+			cerr << errmsg << endl;
+			error += errmsg;
+		}
+		else {
+			cerr << " (no error message available)" << endl;
+		}
 		throw std::runtime_error(error);
 	}
 

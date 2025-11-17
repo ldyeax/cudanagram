@@ -438,6 +438,7 @@ public:
 		)
         {
             device_id = p_device_id;
+			cerr << "Constructed Worker_GPU on device " << device_id << endl;
         }
 
 //         int64_t numThreads() override {

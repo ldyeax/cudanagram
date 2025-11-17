@@ -127,6 +127,16 @@ $(TARGET): $(SRC)
 		$(SRC) \
 		$(LDFLAGS)
 
+worker_gpu_test:
+	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
+	$(GPP) $(GPP_FLAGS) -c $(DB_SRC)
+	$(GPP) $(GPP_FLAGS) -c $(WORKER_CPU_SRC)
+	$(NVCC) $(NVCC_CFLAGS) \
+		$(AVX_O) $(DB_O) $(WORKER_CPU_O) \
+		-o worker_gpu_test \
+		worker_gpu_test.cu \
+		$(LDFLAGS)
+
 clean:
 	rm -f $(TARGET)
 	rm -f capabilities_test
@@ -136,6 +146,7 @@ clean:
 	rm -f worker_cpu_test
 	rm -f sqlite_test
 	rm -f *.o
+	rm -f worker_gpu_test
 
 cpu:
 	$(GPP) $(GPP_FLAGS) \
