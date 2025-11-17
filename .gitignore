@@ -1,4 +1,5 @@
 external/**
+sqlite/**
 cudanagram
 trace
 database_test
