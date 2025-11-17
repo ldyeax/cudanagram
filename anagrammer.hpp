@@ -11,6 +11,10 @@
 #include <cassert>
 #include <thread>
 #include <chrono>
+#include <algorithm> // For std::shuffle
+#include <vector>    // For std::vector
+#include <random>    // For random number generation
+#include <chrono>    // For seeding with time
 using dictionary::Dictionary;
 using job::Job;
 using std::shared_ptr;
@@ -64,6 +68,13 @@ namespace anagrammer {
 					cerr << "No initial unfinished jobs created" << endl;
 				}
 				return;
+			}
+
+			// Shuffle the initial unfinished jobs to distribute workload evenly
+			{
+				auto& jobs = *initial_jobs.unfinished_jobs;
+				unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+				std::shuffle(jobs.begin(), jobs.end(), std::default_random_engine(seed));
 			}
 
 			#ifdef CUDANAGRAM_TESTING
