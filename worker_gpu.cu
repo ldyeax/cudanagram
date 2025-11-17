@@ -42,7 +42,7 @@ namespace worker_GPU {
 		int64_t num_input_jobs
 	)
 	{
-		printf("---kernel launched\n");
+		//printf("---kernel launched\n");
 		int64_t index = blockIdx.x * blockDim.x + threadIdx.x;
 #ifdef TEST_WORKER_GPU
 		if (index == 0) {
