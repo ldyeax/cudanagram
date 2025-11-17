@@ -220,7 +220,7 @@ void Database::create_db()
 	else {
 		db_name = getNewDatabaseName();
 	}
-	cerr << "Creating SQLite db with name " << db_name << endl;
+	//cerr << "Creating SQLite db with name " << db_name << endl;
 
 	// Open with flags to support multi-threaded access
 	int rc = sqlite3_open_v2(db_name.c_str(), &impl->db,
@@ -282,7 +282,7 @@ void Database::create_db()
 	}
 	else {
 		//std::lock_guard<std::mutex> lock(global_print_mutex);
-		cerr << "Set pragmas for database " << db_name << endl;
+		//cerr << "Set pragmas for database " << db_name << endl;
 	}
 
 	// Create table
@@ -312,7 +312,7 @@ void Database::create_db()
 	}
 	else {
 		//std::lock_guard<std::mutex> lock(global_print_mutex);
-		cerr << "Created job table in database " << db_name << endl;
+		//cerr << "Created job table in database " << db_name << endl;
 	}
 
 	// Don't create index during initial creation - it slows down bulk inserts
@@ -328,7 +328,7 @@ void Database::create_db()
 	// 	throw std::runtime_error(error);
 	// }
 
-	cerr << "Created new SQLite db" << endl;
+	//cerr << "Created new SQLite db" << endl;
 }
 
 void Database::connect()

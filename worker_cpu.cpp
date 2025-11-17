@@ -147,19 +147,19 @@ public:
 		int64_t jobs_given = 0;
 		for (unsigned int i = 0; i < num_threads; i++) {
 			int64_t jobs_to_give = threads_per_worker;
-			cerr << "Jobs to give: " << jobs_to_give << endl;
+			//cerr << "Jobs to give: " << jobs_to_give << endl;
 			if (jobs_given + jobs_to_give > num_initial_jobs) {
 				jobs_to_give = num_initial_jobs - jobs_given;
-				cerr << "Adjusted jobs to give: " << jobs_to_give << endl;
+				//cerr << "Adjusted jobs to give: " << jobs_to_give << endl;
 			}
 			if (jobs_to_give <= 0) {
-				cerr << "No more jobs to give, breaking spawn loop" << endl;
+				//cerr << "No more jobs to give, breaking spawn loop" << endl;
 				break;
 			}
 			Job* thread_initial_jobs = initial_jobs;
 			// create as detached thread
 			std::thread t1([i, jobs_to_give, thread_initial_jobs, dict, non_sentence_finished_jobs, buffer]() {
-				cerr << "Thread got jbos to give: " << jobs_to_give << endl;
+				//cerr << "Thread got jobs to give: " << jobs_to_give << endl;
 				buffer[i].store(new Worker_CPU(
 					dict,
 					thread_initial_jobs,
@@ -189,11 +189,11 @@ public:
 					);
 				}
 			});
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-			{
-				//std::lock_guard<std::mutex> lock(global_print_mutex);
-				cerr << "Created thread for worker " << i << endl;
-			}
+			// std::this_thread::sleep_for(std::chrono::seconds(1));
+			// {
+			// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
+			// 	cerr << "Created thread for worker " << i << endl;
+			// }
 			t1.detach();
 			jobs_given += jobs_to_give;
 			initial_jobs += jobs_to_give;
