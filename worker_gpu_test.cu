@@ -9,7 +9,7 @@ using namespace worker_GPU;
 using job::Job;
 int main(int argc, char** argv)
 {
-	string input = "helworldlo";
+	string input = "helloworld";
 	Dictionary dict(
 		(char*)input.c_str(),
 		(char*)"./worker_cpu_test_dictionary.txt",
