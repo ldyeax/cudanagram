@@ -95,7 +95,10 @@ namespace worker {
 
 				doJobs();
 				writeNewJobsToDatabase();
-				database->printFoundSentences(dictionary);
+				{
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					database->printFoundSentences(dictionary);
+				}
 				getUnfinishedJobsFromDatabase();
 			}
 			database->printFoundSentences(dictionary);
