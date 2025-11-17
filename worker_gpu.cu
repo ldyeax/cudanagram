@@ -17,6 +17,18 @@ using std::cerr;
 using std::endl;
 
 namespace worker_GPU {
+	__global__ void printJobsKernel(
+		Job* d_jobs,
+		int64_t num_jobs
+	)
+	{
+		int64_t index = blockIdx.x * blockDim.x + threadIdx.x;
+		if (index >= num_jobs) {
+			return;
+		}
+		d_jobs += index;
+		d_jobs->d_print();
+	}
 	__global__ void kernel(
 		Job* d_job,
 		Dictionary* dict,
@@ -144,9 +156,13 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: processing %ld jobs on device %d\n", p_count, device_id);
 			fprintf(stderr, "Worker_GPU::doJob: max_input_jobs_per_iteration=%ld\n", max_input_jobs_per_iteration);
-			for (int64_t i = 0; i < p_count; i++) {
-				d_input_jobs[i].print();
-			}
+			fprintf(stderr, "Worker_GPU::doJob: d_input_jobs=%p\n", d_input_jobs);
+			gpuErrChk(cudaDeviceSynchronize());
+			printJobsKernel<<<1, 1>>>(
+				d_input_jobs,
+				p_count
+			);
+			gpuErrChk(cudaDeviceSynchronize());
 			#endif
 			// launch kernel
 			dim3 blocks(worker_gpu_blocks);
