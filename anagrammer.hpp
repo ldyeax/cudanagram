@@ -100,7 +100,9 @@ namespace anagrammer {
 					= f->getTotalThreads() * jobs_per_thread;
 				cerr << "num_jobs_for_factory.1 " << i << " = "
 					<< num_jobs_for_factory << endl;
-				if (num_jobs_taken + num_jobs_for_factory >= total_jobs) {
+
+				if (i == (int64_t)factories.size() - 1) {
+					// Last factory takes all remaining jobs
 					num_jobs_for_factory = total_jobs - num_jobs_taken;
 				}
 				num_jobs_taken += num_jobs_for_factory;
