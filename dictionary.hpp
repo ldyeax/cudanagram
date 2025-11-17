@@ -44,6 +44,7 @@ namespace dictionary {
 	private:
 		void init();
 	public:
+		FILE* output_file = stdout;
 		Dictionary(
 			char* p_input,
 			char* p_filename,
@@ -90,6 +91,7 @@ namespace dictionary {
 		__host__ void copyInputFrequencyMap(frequency_map::FrequencyMap* dest);
 
 		__host__ void printSentence(
+			FILE* output_file,
 			shared_ptr<vector<FrequencyMapIndex_t>> indices
 		);
 

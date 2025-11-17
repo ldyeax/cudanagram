@@ -732,7 +732,8 @@ void Database::printFoundSentence(
 	JobID_t parent_id,
 	Dictionary* dict,
 	shared_ptr<vector<FrequencyMapIndex_t>> indices,
-	Txn* txn
+	Txn* txn,
+	FILE* output_file
 )
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
@@ -751,7 +752,7 @@ void Database::printFoundSentence(
 		if (found_job.job_id == found_job.parent_job_id) {
 			cerr << "oedipus: found job with ID " << parent_id << " in printFoundSentence" << endl;
 			indices->push_back(found_job.start);
-			dict->printSentence(indices);
+			dict->printSentence(output_file, indices);
 			return;
 		}
 
@@ -760,12 +761,13 @@ void Database::printFoundSentence(
 			found_job.parent_job_id,
 			dict,
 			indices,
-			txn
+			txn,
+			output_file
 		);
 	}
 	else {
 		// Reached the root, print the sentence
-		dict->printSentence(indices);
+		dict->printSentence(output_file, indices);
 	}
 }
 
@@ -820,7 +822,7 @@ void Database::getFoundSentenceJobs(vector<Job>& out_jobs)
 	getFoundSentenceJobs(out_jobs, txn.txn);
 }
 
-void Database::printFoundSentences(Dictionary* dict)
+void Database::printFoundSentences(Dictionary* dict, FILE* output_file)
 {
 	if (impl->parent != nullptr) {
 		throw std::invalid_argument("printFoundSentences should be called on the parent database");
@@ -840,7 +842,8 @@ void Database::printFoundSentences(Dictionary* dict)
 			job.parent_job_id,
 			dict,
 			indices,
-			txn.txn
+			txn.txn,
+			output_file
 		);
 	}
 

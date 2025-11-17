@@ -256,6 +256,7 @@ void dictionary::Dictionary::copyInputFrequencyMap(frequency_map::FrequencyMap* 
 }
 
 void dictionary::Dictionary::printSentence(
+	FILE* output_file,
 	shared_ptr<vector<FrequencyMapIndex_t>> p_indices)
 {
 	//std::lock_guard<std::mutex> lock(global_print_mutex);
@@ -272,14 +273,18 @@ void dictionary::Dictionary::printSentence(
 		// print current words
 		for (int32_t i = 0; i < iterators.size(); i++) {
 			if (i > 0) {
-				printf(" ");
+				fprintf(
+					output_file,
+					" "
+				);
 			}
-			printf(
+			fprintf(
+				output_file,
 				"%s",
 				words[*(iterators[i])].c_str()
 			);
 		}
-		printf("\n");
+		fprintf(output_file, "\n");
 		// increment iterators
 		int32_t carry = 1;
 		for (int32_t i = iterators.size() - 1; i >= 0; i--) {
@@ -353,7 +358,7 @@ void printFoundSentences_initial(
 {
 	{
 		//std::lock_guard<std::mutex> lock(global_print_mutex);
-		cerr << "Printing found sentences from " << finished_jobs->size() << " finished jobs" << endl;
+		// cerr << "Printing found sentences from " << finished_jobs->size() << " finished jobs" << endl;
 	}
 	for (int64_t i = 0; i < finished_jobs->size(); i++) {
 		auto& job = finished_jobs->at(i);
@@ -376,7 +381,7 @@ void printFoundSentences_initial(
 				}
 			}
 
-			dict->printSentence(indices);
+			dict->printSentence(stdout, indices);
 		}
 	}
 }
