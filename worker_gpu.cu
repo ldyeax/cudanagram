@@ -489,6 +489,7 @@ public:
 						jobs_per_device,
 						non_sentence_finished_jobs
 					));
+					fprintf(stderr, "Started Worker_GPU on device %d at %p\n", i, buffer[i].load());
 					buffer[i].load()->start();
 				});
 				t2.detach();

@@ -184,7 +184,7 @@ TxnContainer Database::beginTransaction()
 
 void Database::commitTransaction(Txn* txn)
 {
-	cerr << "commitTransaction called on database " << db_name << endl;
+	//cerr << "commitTransaction called on database " << db_name << endl;
 	if (txn->db != impl->db) {
 		throw std::invalid_argument("Transaction does not belong to this database");
 	}

@@ -85,13 +85,13 @@ namespace worker {
 			static int id_ = 0;
 			int id = ++id_;
 			init();
-			cerr << "Worker initialized, entering main loop" << endl;
+			//cerr << "Worker initialized, entering main loop" << endl;
 			worker_status = running;
 			getUnfinishedJobsFromDatabase();
 			while (num_unfinished_jobs > 0) {
 
-				cerr << "Worker " << id << " starting doJobs with "
-					<< num_unfinished_jobs << " unfinished jobs" << endl;
+				// cerr << "Worker " << id << " starting doJobs with "
+				// 	<< num_unfinished_jobs << " unfinished jobs" << endl;
 
 				doJobs();
 				writeNewJobsToDatabase();
