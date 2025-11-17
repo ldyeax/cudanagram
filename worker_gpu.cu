@@ -470,17 +470,24 @@ public:
         virtual int64_t spawn(
 			atomic<Worker*>* buffer,
 			Dictionary* dict,
-			/**
-			 * May have finished jobs duplicated
-			 **/
 			Job* initial_jobs,
 			int64_t num_initial_jobs,
 			shared_ptr<vector<Job>> non_sentence_finished_jobs
         ) override {
             int num_devices = deviceCount();
+			cerr << "GPU Spawn: " << num_devices << " devices detected" << endl;
 			Job* device_initial_jobs = initial_jobs;
 			int64_t jobs_per_device = num_initial_jobs / num_devices;
+			cerr << "GPU Spawn : " << jobs_per_device << " jobs per device" << endl;
+			if (jobs_per_device <= 0) {
+				cerr << "Jobs per device = " << jobs_per_device << endl;
+				exit(1);
+			}
 			for (int i = 0; i < num_devices; i++) {
+				if (jobs_per_device <= 0) {
+					cerr << "No jobs to assign to device " << i << ", breaking spawn loop" << endl;
+					break;
+				}
 				std::thread t2([=]{
 					buffer[i].store(new Worker_GPU(
 						i,
