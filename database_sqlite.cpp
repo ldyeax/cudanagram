@@ -202,6 +202,7 @@ Database::~Database()
 
 Database::Database(std::string existing_db_name)
 {
+	throw;
 #ifdef TEST_DB
 	cerr << "Constructing Database object with existing db name: " << existing_db_name << endl;
 #endif
@@ -404,7 +405,8 @@ Database::Database()
 {
 	init();
 	create_db();
-	connect();
+	// Don't call connect() for in-memory databases - connection is already open from create_db()
+	// connect() would create a NEW empty in-memory database
 }
 
 void Database::writeJob(job::Job job) {
