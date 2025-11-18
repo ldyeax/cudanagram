@@ -167,9 +167,9 @@ databaseType_t Database::getDatabaseType()
 
 std::string Database::getNewDatabaseName()
 {
-	// auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-	// return "sqlite/cudanagram_" + current_unix_timestamp + ".db";
-	return ":memory:";
+	auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+	return "sqlite/cudanagram_" + current_unix_timestamp + ".db";
+	//return ":memory:";
 }
 
 void Database::init()
