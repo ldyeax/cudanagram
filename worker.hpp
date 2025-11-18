@@ -104,7 +104,7 @@ namespace worker {
 				doJobs();
 				writeNewJobsToDatabase();
 				{
-					std::lock_guard<std::mutex> lock(global_print_mutex);
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
 					database->printFoundSentences(dictionary, output_file);
 				}
 				fflush(output_file);
