@@ -194,10 +194,10 @@ public:
 				}
 			});
 			// std::this_thread::sleep_for(std::chrono::seconds(1));
-			// {
-			// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
-			// 	cerr << "Created thread for worker " << i << endl;
-			// }
+			{
+				std::lock_guard<std::mutex> lock(global_print_mutex);
+				cerr << "Created thread for worker " << i << endl;
+			}
 			t1.detach();
 			jobs_given += jobs_to_give;
 			initial_jobs += jobs_to_give;
