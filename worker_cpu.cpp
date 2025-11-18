@@ -105,6 +105,7 @@ public:
 			Job& job = unfinished_jobs[i];
 			doJob(job);
 		}
+		run_stats.jobs_processed = num_unfinished_jobs;
 	}
 
 	virtual void postLoop() override

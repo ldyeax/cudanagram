@@ -299,6 +299,7 @@ public:
 				jobs_done += num_input_jobs;
 			}
 			//cerr << "End of doJobs num_new_jobs=" << num_new_jobs << endl;
+			run_stats.jobs_processed = jobs_done;
 		}
 
 		virtual void postLoop() override
