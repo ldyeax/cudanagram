@@ -325,14 +325,16 @@ public:
 				totalMem
 			);
 
-			max_input_jobs_per_iteration
-				= (freeMem - sizeof(Dictionary))
-					/
-					(
-						sizeof(Job)
-						// + sizeof(Job) * max_new_jobs_per_job - unified
-						// + sizeof(int64_t) - unified
-					);
+			// max_input_jobs_per_iteration
+			// 	= (freeMem - sizeof(Dictionary))
+			// 		/
+			// 		(
+			// 			sizeof(Job)
+			// 			// + sizeof(Job) * max_new_jobs_per_job - unified
+			// 			// + sizeof(int64_t) - unified
+			// 		);
+			// Now determining max_input_jobs_per_iteration beforehand in init()
+			//  based on how many jobs could fit into half the memory
 			//max_input_jobs_per_iteration = max_input_jobs_per_iteration * 3L / 4L;
 			cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration << " based on free memory of "
 				 << freeMem << " bytes on device " << device_id << endl;
@@ -384,13 +386,12 @@ public:
 			gpuErrChk(cudaSetDevice(device_id));
 			gpuErrChk(cudaDeviceSynchronize());
 
-			setLimits();
-
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Dictionary)=" << sizeof(Dictionary) << " bytes on device " << device_id << endl;
 			#endif
             gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
 			gpuErrChk(cudaDeviceSynchronize());
+
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_dict on device " << device_id << endl;
 			#endif
@@ -405,6 +406,19 @@ public:
 			cerr << "Copied Dictionary to device " << device_id << endl;
 			#endif
 
+			// get free cuda memory
+			size_t freeMemBefore, totalMem;
+			gpuErrChk(cudaMemGetInfo(&freeMemBefore, &totalMem));
+			fprintf(stderr,
+				"Device %d memory before allocations: free=%zu bytes, total=%zu bytes\n",
+				device_id,
+				freeMemBefore,
+				totalMem
+			);
+			int64_t num_jobs_in_whole_memory = freeMemBefore / sizeof(Job);
+
+			max_input_jobs_per_iteration = num_jobs_in_whole_memory / 2L;
+
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
 				 << sizeof(Job) * max_input_jobs_per_iteration
@@ -418,6 +432,8 @@ public:
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_input_jobs on device " << device_id << endl;
 			#endif
+
+			setLimits();
 
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << (max_new_jobs_per_job * max_input_jobs_per_iteration)
