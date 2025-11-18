@@ -130,6 +130,10 @@ namespace worker_GPU {
         }
 
         std::cerr << "Number of CUDA-enabled GPUs: " << ret << std::endl;
+		if (max_gpu_devices > 0 && ret > max_gpu_devices) {
+			ret = (int)max_gpu_devices;
+			cerr << "Limiting to max_gpu_devices = " << max_gpu_devices << std::endl;
+		}
         return ret;
     }
     class Worker_GPU : public Worker {
@@ -250,7 +254,9 @@ public:
 			int64_t jobs_done = 0;
 			num_new_jobs = 0;
 			while (jobs_done < num_unfinished_jobs) {
-				memset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
+				//memset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
+				cudaMemset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
+
 
 				int64_t jobs_start = jobs_done;
 				int64_t jobs_end = jobs_start + max_input_jobs_per_iteration;
@@ -284,6 +290,15 @@ public:
 			}
 			//cerr << "End of doJobs num_new_jobs=" << num_new_jobs << endl;
         }
+
+		virtual void postLoop() override
+		{
+			cerr << "Worker_GPU on device " << device_id << " processed "
+				<< run_stats.jobs_processed << " jobs at "
+				<< run_stats.getJobsPerSecond() << " jobs/second"
+				<< endl;
+		}
+
 		int64_t estimatedMemoryUsage()
 		{
 			return sizeof(Dictionary) + max_input_jobs_per_iteration * (sizeof(Job) + sizeof(Job) * max_new_jobs_per_job + sizeof(int64_t));

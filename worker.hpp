@@ -19,10 +19,30 @@ using dictionary::Dictionary;
 using std::atomic;
 
 namespace worker {
+	int64_t max_cpu_threads = -1;
+	int64_t max_gpu_devices = -1;
+
 	enum WorkerStatus {
 		uninitialized,
 		running,
 		ended
+	};
+	struct RunStats {
+		int64_t jobs_processed = 0;
+		int64_t new_jobs_created = 0;
+		int64_t sentences_found = 0;
+		std::chrono::steady_clock::time_point start_time;
+		std::chrono::steady_clock::time_point end_time;
+		float getJobsPerSecond()
+		{
+			auto duration = std::chrono::duration_cast<std::chrono::duration<float>>(
+				end_time - start_time
+			);
+			if (duration.count() == 0.0f) {
+				return 0.0f;
+			}
+			return (float)jobs_processed / duration.count();
+		}
 	};
 	/**
 	 * Worker is expected to be constructed in a new thread -
@@ -82,6 +102,12 @@ namespace worker {
 				num_new_jobs = 0;
 			}
 		}
+		// start time variable
+		RunStats run_stats = {};
+		virtual void postLoop()
+		{
+
+		}
 		void loop()
 		{
 			static int id_ = 0;
@@ -98,6 +124,7 @@ namespace worker {
 			}
 			int64_t _count = 0;
 			while (num_unfinished_jobs > 0) {
+				run_stats.start_time = std::chrono::steady_clock::now();
 				_count++;
 				// cerr << "Worker " << id << " starting doJobs with "
 				// 	<< num_unfinished_jobs << " unfinished jobs at generation " << _count << endl;
@@ -112,6 +139,8 @@ namespace worker {
 					}
 				}
 				getUnfinishedJobsFromDatabase();
+				run_stats.end_time = std::chrono::steady_clock::now();
+				postLoop();
 			}
 			database->printFoundSentences(dictionary, output_file);
 			fclose(output_file);

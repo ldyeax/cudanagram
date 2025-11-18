@@ -783,17 +783,8 @@ void Database::getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn)
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 	//const char* select_sql = "SELECT parent_job_id, start FROM job WHERE is_sentence = 1";
-	// update is_sentence=0 returning
-	/*
-		string select_query =
-		"UPDATE job "
-		"SET finished = 1 "
-		"WHERE finished = 0 "
-		"RETURNING job_id, parent_job_id, frequency_map, start, finished "
-		"LIMIT " + std::to_string(length);
-	*/
 
-	const char* select_sql = "UPDATE job SET is_sentence = 0 WHERE is_sentence = 1 RETURNING parent_job_id, start";
+	const char* select_sql = "UPDATE job SET is_sentence = -1 WHERE is_sentence = 1 RETURNING parent_job_id, start";
 
 	sqlite3_stmt* stmt;
 	int rc = sqlite3_prepare_v2(txn->db, select_sql, -1, &stmt, nullptr);

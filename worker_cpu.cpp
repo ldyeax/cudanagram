@@ -16,8 +16,10 @@ using std::endl;
 
 class Worker_CPU : public Worker {
 private:
+	int64_t thread_id = -1;
 public:
 	Worker_CPU(
+		int64_t p_thread_id,
 		dictionary::Dictionary* p_dict,
 		Job* p_initial_jobs,
 		int64_t p_num_initial_jobs,
@@ -29,6 +31,7 @@ public:
 		non_sentence_finished_jobs
 	)
 	{
+		thread_id = p_thread_id;
 		{
 			//std::lock_guard<std::mutex> lock(global_print_mutex);
 			fprintf(
@@ -103,6 +106,16 @@ public:
 			doJob(job);
 		}
 	}
+
+	virtual void postLoop() override
+	{
+		if (thread_id == 0) {
+			cerr << "Worker_CPU thread 0 processed "
+				<< run_stats.jobs_processed << " jobs at "
+				<< run_stats.getJobsPerSecond() << " jobs/second"
+				<< endl;
+		}
+	}
 };
 
 class WorkerFactory_CPU : public WorkerFactory {
@@ -147,7 +160,7 @@ class WorkerFactory_CPU : public WorkerFactory {
 		if (num_threads < 2) {
 			throw;
 		}
-		num_threads--;
+		num_threads-=2;
 
 		{
 			//std::lock_guard<std::mutex> lock(global_print_mutex);
@@ -156,6 +169,13 @@ class WorkerFactory_CPU : public WorkerFactory {
 				<< " for " << num_initial_jobs << " initial jobs"
 				<< endl;
 		}
+
+		if (max_cpu_threads > 0 && num_threads > max_cpu_threads) {
+			num_threads = (unsigned int) max_cpu_threads;
+			cerr << "Limiting to max_cpu_threads = " << max_cpu_threads << std::endl;
+		}
+
+
 		int64_t threads_per_worker = num_initial_jobs / num_threads;
 		if (threads_per_worker < 1) {
 			threads_per_worker = 1;
@@ -181,6 +201,7 @@ class WorkerFactory_CPU : public WorkerFactory {
 					throw;
 				}
 				buffer[i].store(new Worker_CPU(
+					i,
 					dict,
 					thread_initial_jobs,
 					jobs_to_give,
