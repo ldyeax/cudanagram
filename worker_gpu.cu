@@ -513,14 +513,15 @@ public:
 		 **/
 		virtual int64_t getTotalThreads() override
 		{
-			int32_t num_devices = deviceCount();
-			int64_t total_threads = 0;
-			for (int32_t i = 0; i < num_devices; i++) {
-				cudaDeviceProp deviceProp;
-				gpuErrChk(cudaGetDeviceProperties(&deviceProp, i));
-				total_threads += deviceProp.maxThreadsPerMultiProcessor * deviceProp.multiProcessorCount;
-			}
-			return total_threads;
+			// int32_t num_devices = deviceCount();
+			// int64_t total_threads = 0;
+			// for (int32_t i = 0; i < num_devices; i++) {
+			// 	cudaDeviceProp deviceProp;
+			// 	gpuErrChk(cudaGetDeviceProperties(&deviceProp, i));
+			// 	total_threads += deviceProp.maxThreadsPerMultiProcessor * deviceProp.multiProcessorCount;
+			// }
+			// return total_threads;
+			return deviceCount() * 768L * 1024L;
 		}
         virtual int64_t spawn(
 			atomic<Worker*>* buffer,

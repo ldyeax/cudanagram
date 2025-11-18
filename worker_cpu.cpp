@@ -106,17 +106,21 @@ public:
 };
 
 class WorkerFactory_CPU : public WorkerFactory {
-public:
+
+	public:
 	int64_t getTotalThreads() override
 	{
-		//return 1;
+		// //return 1;
 
+		// unsigned int num_threads
+		// 	= std::thread::hardware_concurrency();
+		// if (num_threads < 2) {
+		// 	throw;
+		// }
+		// return num_threads - 1;
 		unsigned int num_threads
 			= std::thread::hardware_concurrency();
-		if (num_threads < 2) {
-			throw;
-		}
-		return num_threads - 1;
+		return num_threads * 512; // CPU is faster per thread than GPU
 	}
 	int64_t spawn(
 		/**
@@ -138,7 +142,13 @@ public:
 		shared_ptr<vector<Job>> non_sentence_finished_jobs
 	) override
 	{
-		int64_t num_threads = getTotalThreads();
+		unsigned int num_threads
+			= std::thread::hardware_concurrency();
+		if (num_threads < 2) {
+			throw;
+		}
+		num_threads--;
+
 		{
 			//std::lock_guard<std::mutex> lock(global_print_mutex);
 			cerr << "CPU Worker Factory spawning "
