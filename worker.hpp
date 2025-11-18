@@ -55,7 +55,7 @@ namespace worker {
 					"dictionary is null in getNewJobsBufferSize"
 				);
 			}
-			return getUnfinishedJobsBufferSize() * dictionary->frequency_maps_length;
+			return getUnfinishedJobsBufferSize() * (int64_t) dictionary->frequency_maps_length;
 		}
 		/**
 		 * Child class is expected to implement init,
@@ -212,7 +212,13 @@ namespace worker {
 					 "Inserted initial jobs into worker database" << endl;
 				}
 				#endif
-
+				{
+					std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Allocating new jobs buffer of size "
+						<< getNewJobsBufferSize() << endl;
+				}
+				#ifdef DEBUG_WORKER_CPU
+				#endif
 				new_jobs_buffer = new Job[getNewJobsBufferSize()];
 				#ifdef DEBUG_WORKER_CPU
 				{
