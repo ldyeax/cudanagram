@@ -167,8 +167,9 @@ databaseType_t Database::getDatabaseType()
 
 std::string Database::getNewDatabaseName()
 {
-	auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-	return "sqlite/cudanagram_" + current_unix_timestamp + ".db";
+	// auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+	// return "sqlite/cudanagram_" + current_unix_timestamp + ".db";
+	return ":memory:";
 }
 
 void Database::init()
@@ -251,11 +252,16 @@ void Database::create_db()
 	char* err_msg = nullptr;
 	const char* pragmas =
 		"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
-		"PRAGMA journal_mode = OFF;"  // Memory journal for speed
-		"PRAGMA synchronous = OFF;"
-		"PRAGMA temp_store = MEMORY;"
+		"PRAGMA journal_mode = OFF;"  // No journal for maximum speed
+		"PRAGMA synchronous = OFF;"  // No fsync - data loss possible on crash
+		"PRAGMA temp_store = MEMORY;"  // Keep temp tables in memory
 		"PRAGMA cache_size = -16000000;"  // 16GB cache
 		"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
+		"PRAGMA locking_mode = EXCLUSIVE;"  // No lock contention
+		"PRAGMA auto_vacuum = NONE;"  // Disable auto-vacuum overhead
+		"PRAGMA count_changes = OFF;"  // Don't count changes
+		"PRAGMA query_only = OFF;"  // Allow writes
+		"PRAGMA read_uncommitted = ON;"  // Allow dirty reads (single connection so safe)
 	;
 	// allow multithreaded
 
