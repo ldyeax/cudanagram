@@ -96,6 +96,7 @@ namespace worker {
 				cerr << "Worker " << id << " failed to open output file " << output_file_name << endl;
 				throw std::runtime_error("Failed to open worker output file");
 			}
+			int64_t _count = 0;
 			while (num_unfinished_jobs > 0) {
 
 				// cerr << "Worker " << id << " starting doJobs with "
@@ -105,9 +106,11 @@ namespace worker {
 				writeNewJobsToDatabase();
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					database->printFoundSentences(dictionary, output_file);
+					if (_count % 1024 == 0) {
+						database->printFoundSentences(dictionary, output_file);
+						fflush(output_file);
+					}
 				}
-				fflush(output_file);
 				getUnfinishedJobsFromDatabase();
 			}
 			database->printFoundSentences(dictionary, output_file);
