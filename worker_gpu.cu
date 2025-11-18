@@ -411,11 +411,31 @@ public:
 
 			max_new_jobs_per_job = dictionary->frequency_maps_length;
 
+			max_input_jobs_per_iteration = num_jobs_in_whole_memory / (1 + max_new_jobs_per_job);
+
+			int64_t expected_unified_usage =
+				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
+				+ sizeof(int64_t) * max_input_jobs_per_iteration;
+			// 32GB cap
+			if (expected_unified_usage > 32 * 1024 * 1024 * 1024) {
+				max_input_jobs_per_iteration =
+					(32L * 1024L * 1024L * 1024L)
+					/
+					(sizeof(Job) * max_new_jobs_per_job + sizeof(int64_t));
+			}
+
+			cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration
+				 << " on device " << device_id << endl;
+			expected_unified_usage =
+				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
+				+ sizeof(int64_t) * max_input_jobs_per_iteration;
+			cerr << "Expected unified memory usage: " << expected_unified_usage << " bytes on device " << device_id << endl;
+
 			// max input jobs + max input jobs * max new jobs per job = total jobs that would fit
 			// max input jobs (1 + max new jobs per job) = total jobs
 			// total jobs / (1 + max new jobs per job) = max input jobs
 
-			max_input_jobs_per_iteration = num_jobs_in_whole_memory / (1 + max_new_jobs_per_job);
+
 
 			//#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
