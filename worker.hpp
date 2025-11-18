@@ -115,6 +115,7 @@ namespace worker {
 			}
 			database->printFoundSentences(dictionary, output_file);
 			fclose(output_file);
+			cerr << "Worker " << id << " finished all jobs, exiting loop" << endl;
 			worker_status = ended;
 		}
 	public:
