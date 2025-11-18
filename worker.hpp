@@ -98,9 +98,9 @@ namespace worker {
 			}
 			int64_t _count = 0;
 			while (num_unfinished_jobs > 0) {
-
-				// cerr << "Worker " << id << " starting doJobs with "
-				// 	<< num_unfinished_jobs << " unfinished jobs" << endl;
+				_count++;
+				cerr << "Worker " << id << " starting doJobs with "
+					<< num_unfinished_jobs << " unfinished jobs at generation " << _count << endl;
 
 				doJobs();
 				writeNewJobsToDatabase();
