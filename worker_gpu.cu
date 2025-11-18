@@ -409,8 +409,13 @@ public:
 			int64_t mem_for_calculation = freeMemBefore * 8L / 9;
 			int64_t num_jobs_in_whole_memory = mem_for_calculation / sizeof(Job);
 
-			max_input_jobs_per_iteration = num_jobs_in_whole_memory / 2L;
-			max_input_jobs_per_iteration = (max_input_jobs_per_iteration / worker_gpu_threads_per_block) * worker_gpu_threads_per_block;
+			max_new_jobs_per_job = dictionary->frequency_maps_length;
+
+			// max input jobs + max input jobs * max new jobs per job = total jobs that would fit
+			// max input jobs (1 + max new jobs per job) = total jobs
+			// total jobs / (1 + max new jobs per job) = max input jobs
+
+			max_input_jobs_per_iteration = num_jobs_in_whole_memory / (1 + max_new_jobs_per_job);
 
 			//#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
