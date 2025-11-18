@@ -135,7 +135,7 @@ namespace worker_GPU {
     class Worker_GPU : public Worker {
 private:
 		int32_t worker_gpu_blocks = -1;
-		int32_t worker_gpu_threads_per_block = -1;
+		int32_t worker_gpu_threads_per_block = 1024;
 
 		Dictionary* d_dict = nullptr;
 		Job* d_input_jobs = nullptr;
@@ -336,28 +336,19 @@ public:
 			// Now determining max_input_jobs_per_iteration beforehand in init()
 			//  based on how many jobs could fit into half the memory
 			//max_input_jobs_per_iteration = max_input_jobs_per_iteration * 3L / 4L;
-			cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration << " based on free memory of "
-				 << freeMem << " bytes on device " << device_id << endl;
+			// cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration << " based on free memory of "
+			// 	 << freeMem << " bytes on device " << device_id << endl;
 
 			//#endif
+			//worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
 
-			#ifdef TEST_WORKER_GPU
-			worker_gpu_threads_per_block = 1;
-			#else
-			worker_gpu_threads_per_block = deviceProp.maxThreadsPerBlock;
-			#endif
-			// round max_input_jobs_per_iteration to the nearest multiple of worker_gpu_threads_per_block
-			#ifdef TEST_WORKER_GPU
-			max_input_jobs_per_iteration = 1;
-			worker_gpu_blocks = 1;
-			#else
-			max_input_jobs_per_iteration
-				= (max_input_jobs_per_iteration / worker_gpu_threads_per_block)
-					* worker_gpu_threads_per_block;
+			// Round to multiple of threads per block
+			// max_input_jobs_per_iteration
+			// 	= (max_input_jobs_per_iteration / worker_gpu_threads_per_block)
+			// 		* worker_gpu_threads_per_block;
 			worker_gpu_blocks
 				= max_input_jobs_per_iteration
 					/ worker_gpu_threads_per_block;
-			#endif
 
 			// Note: kernel_stack_size (funcAttrib.localSizeBytes) is static local memory,
 			// not dynamic stack. Don't artificially limit cudaLimitStackSize based on it.
@@ -415,15 +406,17 @@ public:
 				freeMemBefore,
 				totalMem
 			);
-			int64_t num_jobs_in_whole_memory = freeMemBefore / sizeof(Job);
+			int64_t mem_for_calculation = freeMemBefore * 8L / 9;
+			int64_t num_jobs_in_whole_memory = mem_for_calculation / sizeof(Job);
 
 			max_input_jobs_per_iteration = num_jobs_in_whole_memory / 2L;
+			max_input_jobs_per_iteration = (max_input_jobs_per_iteration / worker_gpu_threads_per_block) * worker_gpu_threads_per_block;
 
-			#ifdef TEST_WORKER_GPU
+			//#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << max_input_jobs_per_iteration << "="
 				 << sizeof(Job) * max_input_jobs_per_iteration
 				 << " bytes for d_input_jobs on device " << device_id << endl;
-			#endif
+			//#endif
 			gpuErrChk(cudaMalloc(
 				&d_input_jobs,
 				sizeof(Job) * max_input_jobs_per_iteration
@@ -435,12 +428,12 @@ public:
 
 			setLimits();
 
-			#ifdef TEST_WORKER_GPU
+			//#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Job)*" << (max_new_jobs_per_job * max_input_jobs_per_iteration)
 				 << "="
 				 << sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 				 << " bytes for unified_new_jobs on device " << device_id << endl;
-			#endif
+			//#endif
 			gpuErrChk(cudaMallocManaged(
 				&unified_new_jobs,
 				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
@@ -449,11 +442,11 @@ public:
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_new_jobs on device " << device_id << endl;
 			#endif
-			#ifdef TEST_WORKER_GPU
+			//#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(int64_t)*" << max_input_jobs_per_iteration << "="
 				 << sizeof(int64_t) * max_input_jobs_per_iteration
 				 << " bytes for unified_num_new_jobs on device " << device_id << endl;
-			#endif
+			//#endif
 			gpuErrChk(cudaMallocManaged(
 				&unified_num_new_jobs,
 				sizeof(int64_t) * max_input_jobs_per_iteration
@@ -462,6 +455,9 @@ public:
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated unified_num_new_jobs " << device_id << endl;
 			#endif
+			cerr << "Allocating sizeof(int64_t)*" << max_input_jobs_per_iteration << "="
+				 << sizeof(int64_t) * max_input_jobs_per_iteration
+				 << " bytes for unified_num_new_jobs on device " << device_id << endl;
 			gpuErrChk(cudaMemset(
 				unified_num_new_jobs,
 				0,
