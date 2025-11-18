@@ -119,24 +119,24 @@ namespace worker_GPU {
 		d_num_new_jobs[index] = num_new_jobs;
 	}
 
-    int deviceCount()
-    {
-        int ret;
-        cudaError_t error = cudaGetDeviceCount(&ret);
+	int deviceCount()
+	{
+		int ret;
+		cudaError_t error = cudaGetDeviceCount(&ret);
 
-        if (error != cudaSuccess) {
-            std::cerr << "cudaGetDeviceCount failed: " << cudaGetErrorString(error) << std::endl;
-            return 1;
-        }
+		if (error != cudaSuccess) {
+			std::cerr << "cudaGetDeviceCount failed: " << cudaGetErrorString(error) << std::endl;
+			return 1;
+		}
 
-        std::cerr << "Number of CUDA-enabled GPUs: " << ret << std::endl;
+		std::cerr << "Number of CUDA-enabled GPUs: " << ret << std::endl;
 		if (max_gpu_devices > 0 && ret > max_gpu_devices) {
 			ret = (int)max_gpu_devices;
 			cerr << "Limiting to max_gpu_devices = " << max_gpu_devices << std::endl;
 		}
-        return ret;
-    }
-    class Worker_GPU : public Worker {
+		return ret;
+	}
+	class Worker_GPU : public Worker {
 private:
 		int32_t worker_gpu_blocks = -1;
 		int32_t worker_gpu_threads_per_block = 1024;
@@ -152,7 +152,7 @@ private:
 
 		std::thread h_thread;
 public:
-        int device_id;
+		int device_id;
 
 		virtual void writeNewJobsToDatabase() override
 		{
@@ -194,6 +194,16 @@ public:
 				);
 				throw std::runtime_error("Kernel launch failed");
 			}
+			gpuErrChk(cudaMemPrefetchAsync(
+				unified_num_new_jobs,
+				sizeof(int64_t) * max_input_jobs_per_iteration,
+				cudaCpuDeviceId
+			));
+			gpuErrChk(cudaMemPrefetchAsync(
+				unified_new_jobs,
+				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration,
+				cudaCpuDeviceId
+			));
 			gpuErrChk(cudaDeviceSynchronize());
 			kernel_launch_error = cudaGetLastError();
 			if (kernel_launch_error != cudaSuccess) {
@@ -250,7 +260,7 @@ public:
 		}
 
 		void doJobs()
-        {
+		{
 			int64_t jobs_done = 0;
 			num_new_jobs = 0;
 			while (jobs_done < num_unfinished_jobs) {
@@ -289,7 +299,7 @@ public:
 				jobs_done += num_input_jobs;
 			}
 			//cerr << "End of doJobs num_new_jobs=" << num_new_jobs << endl;
-        }
+		}
 
 		virtual void postLoop() override
 		{
@@ -395,18 +405,18 @@ public:
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Dictionary)=" << sizeof(Dictionary) << " bytes on device " << device_id << endl;
 			#endif
-            gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
+			gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
 			gpuErrChk(cudaDeviceSynchronize());
 
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocated d_dict on device " << device_id << endl;
 			#endif
-            gpuErrChk(cudaMemcpy(
-                d_dict,
-                dictionary,
-                sizeof(Dictionary),
-                cudaMemcpyHostToDevice
-            ));
+			gpuErrChk(cudaMemcpy(
+				d_dict,
+				dictionary,
+				sizeof(Dictionary),
+				cudaMemcpyHostToDevice
+			));
 			gpuErrChk(cudaDeviceSynchronize());
 			#ifdef TEST_WORKER_GPU
 			cerr << "Copied Dictionary to device " << device_id << endl;
@@ -509,7 +519,7 @@ public:
 		}
 
 
-        Worker_GPU(
+		Worker_GPU(
 			int p_device_id,
 			Dictionary* p_dict,
 			Job* p_initial_jobs,
@@ -522,22 +532,22 @@ public:
 			p_num_initial_jobs,
 			non_sentence_finished_jobs
 		)
-        {
-            device_id = p_device_id;
+		{
+			device_id = p_device_id;
 			cerr << "Constructed Worker_GPU on device " << device_id << endl;
-        }
+		}
 
-//         int64_t numThreads() override {
+//		 int64_t numThreads() override {
 // #ifdef TEST_WORKER_GPU
 // 			return 1;
 // #endif
-//             return worker_gpu_blocks * worker_gpu_threads_per_block;
-//         }
+//			 return worker_gpu_blocks * worker_gpu_threads_per_block;
+//		 }
 
 
-    };
-    class WorkerFactory_GPU : public WorkerFactory {
-    public:
+	};
+	class WorkerFactory_GPU : public WorkerFactory {
+	public:
 		/**
 		 * CPU worker factory would return number of system threads,
 		 * GPU would return number of CUDA threads it can use across
@@ -555,14 +565,14 @@ public:
 			// return total_threads;
 			return deviceCount() * 768L * 1024L;
 		}
-        virtual int64_t spawn(
+		virtual int64_t spawn(
 			atomic<Worker*>* buffer,
 			Dictionary* dict,
 			Job* initial_jobs,
 			int64_t num_initial_jobs,
 			shared_ptr<vector<Job>> non_sentence_finished_jobs
-        ) override {
-            int num_devices = deviceCount();
+		) override {
+			int num_devices = deviceCount();
 			cerr << "GPU Spawn: " << num_devices << " devices detected" << endl;
 			Job* device_initial_jobs = initial_jobs;
 			int64_t jobs_per_device = num_initial_jobs / num_devices;
@@ -590,8 +600,8 @@ public:
 				t2.detach();
 			}
 			return num_devices;
-        }
-    };
+		}
+	};
 }
 
 
