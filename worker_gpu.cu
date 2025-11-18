@@ -416,10 +416,11 @@ public:
 			int64_t expected_unified_usage =
 				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 				+ sizeof(int64_t) * max_input_jobs_per_iteration;
-			// 32GB cap
-			if (expected_unified_usage > 32L * 1024L * 1024L * 1024L) {
+			//  cap
+			int64_t max_unified_mem = (64L * 1024L * 1024L * 1024L);
+			if (expected_unified_usage > max_unified_mem) {
 				max_input_jobs_per_iteration =
-					(32L * 1024L * 1024L * 1024L)
+					max_unified_mem
 					/
 					(sizeof(Job) * max_new_jobs_per_job + sizeof(int64_t));
 			}
