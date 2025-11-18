@@ -134,6 +134,9 @@ namespace worker {
 				{
 					// //std::lock_guard<std::mutex> lock(global_print_mutex);
 					if (_count % 1024 == id * 4) {
+						if (id == 1) {
+							cerr << "Worker " << id << "writing sentences" << endl;
+						}
 						database->printFoundSentences(dictionary, output_file);
 						fflush(output_file);
 					}
