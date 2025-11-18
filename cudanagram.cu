@@ -25,6 +25,9 @@ using std::cerr;
 using std::endl;
 using std::string;
 
+int64_t worker::max_cpu_threads = -1;
+int64_t worker::max_gpu_devices = -1;
+
 void handler(int sig) {
   void *array[10];
   size_t size;
@@ -45,6 +48,8 @@ int printUsage(int argc, char** argv)
 		"[--dictionary <dictionary_file>] "
 		"[--continue <database_name>] "
 		"[--no-cpu] [--no-gpu] "
+		"[--max-cpu-threads <num_threads>] "
+		"[--max-gpu-devices <num_devices>] "
 		"" << std::endl;
 	return 1;
 }
@@ -85,6 +90,18 @@ int main(int argc, char** argv)
 		// }
 		else if (arg == "--dictionary" && i + 1 < argc) {
 			dict_filename = argv[i + 1];
+			i++;
+		}
+		else if (arg == "--max-cpu-threads" && i + 1 < argc) {
+			worker::max_cpu_threads = std::stoll(argv[i + 1]);
+			cerr << "Setting max_cpu_threads = "
+				<< worker::max_cpu_threads << endl;
+			i++;
+		}
+		else if (arg == "--max-gpu-devices" && i + 1 < argc) {
+			worker::max_gpu_devices = std::stoll(argv[i + 1]);
+			cerr << "Setting max_gpu_devices = "
+				<< worker::max_gpu_devices << endl;
 			i++;
 		}
 		else if (input == "") {

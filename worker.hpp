@@ -19,8 +19,8 @@ using dictionary::Dictionary;
 using std::atomic;
 
 namespace worker {
-	int64_t max_cpu_threads = -1;
-	int64_t max_gpu_devices = -1;
+	extern int64_t max_cpu_threads;
+	extern int64_t max_gpu_devices;
 
 	enum WorkerStatus {
 		uninitialized,
