@@ -70,7 +70,7 @@ namespace worker {
 			);
 		}
 		virtual void doJobs() = 0;
-		void writeNewJobsToDatabase()
+		virtual void writeNewJobsToDatabase()
 		{
 			// cerr << "Base writeNewJobsToDatabase called with num_new_jobs = "
 			// 	<< num_new_jobs << endl;

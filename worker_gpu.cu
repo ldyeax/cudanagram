@@ -139,20 +139,20 @@ private:
 
 		Dictionary* d_dict = nullptr;
 		Job* d_input_jobs = nullptr;
-		Job* d_new_jobs = nullptr;
-		Job* h_new_jobs_tmp = nullptr;
 
-		int64_t* d_num_new_jobs = nullptr;
-		int64_t* h_num_new_jobs = nullptr;
+		Job* unified_new_jobs = nullptr;
+		int64_t* unified_num_new_jobs = nullptr;
 
 		int64_t max_new_jobs_per_job;
 		int64_t max_input_jobs_per_iteration;
 
-		Job* h_input_jobs = nullptr;
-
 		std::thread h_thread;
 public:
         int device_id;
+
+		virtual void writeNewJobsToDatabase() override
+		{
+		}
 
 		void doJob(Job* d_input_jobs, int64_t p_count)
 		{
@@ -176,8 +176,8 @@ public:
 			kernel<<<blocks, threads>>>(
 				d_input_jobs,
 				d_dict,
-				d_new_jobs,
-				d_num_new_jobs,
+				unified_new_jobs,
+				unified_num_new_jobs,
 				p_count
 			);
 			auto kernel_launch_error = cudaGetLastError();
@@ -208,24 +208,13 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: copying results numbers list back to host from device %d ..\n", device_id);
 			#endif
-			gpuErrChk(cudaMemcpy(
-				h_num_new_jobs,
-				d_num_new_jobs,
-				sizeof(int64_t) * p_count,
-				cudaMemcpyDeviceToHost
-			));
-			// gpuErrChk(cudaMemcpy(
-			// 	h_new_jobs_tmp,
-			// 	d_new_jobs,
-			// 	sizeof(Job) * max_new_jobs_per_job * p_count,
-			// 	cudaMemcpyDeviceToHost
-			// ));
+
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: copied results numbers list back to host from device %d\n", device_id);
 			#endif
-			Job* h_write_pointer = new_jobs_buffer;
+			//Job* h_write_pointer = new_jobs_buffer;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
-				int64_t num_new_jobs_i = h_num_new_jobs[i];
+				int64_t num_new_jobs_i = unified_num_new_jobs[i];
 				if (num_new_jobs_i == 0) {
 					continue;
 				}
@@ -237,13 +226,18 @@ public:
 				#endif
 				num_new_jobs += num_new_jobs_i;
 				//Job* tmp = h_new_jobs_tmp + (i * max_new_jobs_per_job);
-				gpuErrChk(cudaMemcpy(
-					h_write_pointer,
-					d_new_jobs + (i * max_new_jobs_per_job),
-					sizeof(Job) * num_new_jobs_i,
-					cudaMemcpyDeviceToHost
-				));
-				h_write_pointer += num_new_jobs_i;
+				// gpuErrChk(cudaMemcpy(
+				// 	h_write_pointer,
+				// 	d_new_jobs + (i * max_new_jobs_per_job),
+				// 	sizeof(Job) * num_new_jobs_i,
+				// 	cudaMemcpyDeviceToHost
+				// ));
+				// This is unified memory now
+				database->writeNewJobs(
+					unified_new_jobs + (i * max_new_jobs_per_job),
+					num_new_jobs_i
+				);
+				//h_write_pointer += num_new_jobs_i;
 			}
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: total new jobs produced: %ld\n", num_new_jobs);
@@ -256,7 +250,7 @@ public:
 			int64_t jobs_done = 0;
 			num_new_jobs = 0;
 			while (jobs_done < num_unfinished_jobs) {
-				memset(h_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
+				memset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
 
 				int64_t jobs_start = jobs_done;
 				int64_t jobs_end = jobs_start + max_input_jobs_per_iteration;
@@ -264,9 +258,6 @@ public:
 					jobs_end = num_unfinished_jobs;
 				}
 				int64_t num_input_jobs = jobs_end - jobs_start;
-				// for (int64_t i = 0; i < num_input_jobs; i++) {
-				// 	h_input_jobs[i] = *(unfinished_jobs[jobs_start + i]);
-				// }
 				#ifdef TEST_WORKER_GPU
 				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end << " ("
 					 << num_input_jobs << " jobs).." << endl;
@@ -395,19 +386,6 @@ public:
 			setLimits();
 
 			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating " << max_input_jobs_per_iteration << " input jobs on host for device " << device_id << endl;
-			#endif
-			//h_input_jobs = new Job[max_input_jobs_per_iteration];
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating " << max_new_jobs_per_job * max_input_jobs_per_iteration << " new jobs on host for device " << device_id << endl;
-			#endif
-			h_new_jobs_tmp = new Job[max_new_jobs_per_job * max_input_jobs_per_iteration];
-			#ifdef TEST_WORKER_GPU
-			cerr << "Allocating " << max_input_jobs_per_iteration << " num_new_jobs on host for device " << device_id << endl;
-			#endif
-			h_num_new_jobs = new int64_t[max_input_jobs_per_iteration];
-
-			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(Dictionary)=" << sizeof(Dictionary) << " bytes on device " << device_id << endl;
 			#endif
             gpuErrChk(cudaMalloc(&d_dict, sizeof(Dictionary)));
@@ -446,8 +424,8 @@ public:
 				 << sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 				 << " bytes for d_new_jobs on device " << device_id << endl;
 			#endif
-			gpuErrChk(cudaMalloc(
-				&d_new_jobs,
+			gpuErrChk(cudaMallocManaged(
+				&unified_new_jobs,
 				sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
 			));
 			gpuErrChk(cudaDeviceSynchronize());
@@ -459,8 +437,12 @@ public:
 				 << sizeof(int64_t) * max_input_jobs_per_iteration
 				 << " bytes for d_num_new_jobs on device " << device_id << endl;
 			#endif
-			gpuErrChk(cudaMalloc(
-				&d_num_new_jobs,
+			// gpuErrChk(cudaMalloc(
+			// 	&d_num_new_jobs,
+			// 	sizeof(int64_t) * max_input_jobs_per_iteration
+			// ));
+			gpuErrChk(cudaMallocManaged(
+				&unified_num_new_jobs,
 				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
 			gpuErrChk(cudaDeviceSynchronize());
@@ -468,7 +450,7 @@ public:
 			cerr << "Allocated d_num_new_jobs on device " << device_id << endl;
 			#endif
 			gpuErrChk(cudaMemset(
-				d_num_new_jobs,
+				unified_num_new_jobs,
 				0,
 				sizeof(int64_t) * max_input_jobs_per_iteration
 			));
