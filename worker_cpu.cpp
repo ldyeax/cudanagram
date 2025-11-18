@@ -162,7 +162,7 @@ public:
 				cerr << "No more jobs to give, breaking spawn loop" << endl;
 				break;
 			}
-			Job* thread_initial_jobs = initial_jobs;
+			Job* thread_initial_jobs = initial_jobs + jobs_given;
 			// create as detached thread
 			std::thread t1([i, jobs_to_give, thread_initial_jobs, dict, non_sentence_finished_jobs, buffer]() {
 				cerr << "Thread got jobs to give: " << jobs_to_give << endl;
@@ -206,7 +206,6 @@ public:
 			}
 			t1.detach();
 			jobs_given += jobs_to_give;
-			initial_jobs += jobs_to_give;
 		}
 		return num_threads;
 	}
