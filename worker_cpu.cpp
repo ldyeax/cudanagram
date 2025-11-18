@@ -134,7 +134,7 @@ class WorkerFactory_CPU : public WorkerFactory {
 		// return num_threads - 1;
 		unsigned int num_threads
 			= std::thread::hardware_concurrency();
-		return num_threads * 512; // CPU is faster per thread than GPU
+		return num_threads - 2; // CPU is faster per thread than GPU
 	}
 	int64_t spawn(
 		/**

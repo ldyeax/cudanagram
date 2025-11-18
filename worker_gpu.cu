@@ -610,7 +610,9 @@ public:
 			// 	total_threads += deviceProp.maxThreadsPerMultiProcessor * deviceProp.multiProcessorCount;
 			// }
 			// return total_threads;
-			return deviceCount() * 768L * 1024L;
+			//return deviceCount() * 768L * 1024L;
+			// Equate a GPU device to one CPU thread for scheduling purposes
+			return deviceCount();
 		}
 		virtual int64_t spawn(
 			atomic<Worker*>* buffer,
