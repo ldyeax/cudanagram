@@ -1,6 +1,6 @@
 PQXX_PREFIX := $(CURDIR)/external/build
-PQXX_INC    := $(PQXX_PREFIX)/include
-PQXX_LIB    := $(PQXX_PREFIX)/lib
+PQXX_INC	:= $(PQXX_PREFIX)/include
+PQXX_LIB	:= $(PQXX_PREFIX)/lib
 
 GPP = g++
 #GPP_FLAGS = -O3 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
@@ -23,7 +23,7 @@ LSQLITE3 = -lsqlite3
 
 NVCC = nvcc
 #NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Wno-unused-result
-NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Xcompiler -Wno-unused-result
+NVCC_CFLAGS = -ccbin g++-11 --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Xcompiler -Wno-unused-result
 #LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx -lsqlite3
 LDFLAGS = -ltinfo  -lsqlite3
 
@@ -53,9 +53,9 @@ DICTIONARY_O = dictionary.o
 GPP_DEBUG_FLAGS = -g -O0 -rdynamic -march=native -mavx2 -mfma -std=c++17 -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
 
 ifdef TEST_WORKER_GPU
-    GPP_FLAGS  += -DTEST_WORKER_GPU
+	GPP_FLAGS  += -DTEST_WORKER_GPU
 	GPP_DEBUG_FLAGS  += -DTEST_WORKER_GPU
-    NVCC_CFLAGS += -DTEST_WORKER_GPU
+	NVCC_CFLAGS += -DTEST_WORKER_GPU
 endif
 
 ifdef TEST_ANAGRAMMER
@@ -114,12 +114,26 @@ endif
 
 all: $(TARGET)
 
-$(TARGET): $(SRC)
+$(AVX_O): $(AVX_SRC)
 	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
+
+$(DB_O): $(DB_SRC)
 	$(GPP) $(GPP_FLAGS) -c $(DB_SRC)
+
+$(WORKER_CPU_O): $(WORKER_CPU_SRC)
 	$(GPP) $(GPP_FLAGS) -c $(WORKER_CPU_SRC)
-	$(NVCC) $(NVCC_CFLAGS) -rdc=true -c $(DICTIONARY_CU) $(WORKER_GPU_SRC)
+
+$(DICTIONARY_O): $(DICTIONARY_CU)
+	$(NVCC) $(NVCC_CFLAGS) -rdc=true -c $(DICTIONARY_CU)
+
+$(WORKER_GPU_O): $(WORKER_GPU_SRC)
+	$(NVCC) $(NVCC_CFLAGS) -rdc=true -c $(WORKER_GPU_SRC)
+
+$(FM_O): $(FM_CU)
 	$(NVCC) $(NVCC_CFLAGS) -rdc=true -c $(FM_CU)
+
+
+$(TARGET): $(SRC) $(AVX_O) $(DB_O) $(WORKER_CPU_O) $(DICTIONARY_O) $(WORKER_GPU_O) $(FM_O)
 	$(NVCC) $(NVCC_CFLAGS) \
 		$(AVX_O) $(DB_O) $(WORKER_CPU_O) $(WORKER_GPU_O) \
 		$(DICTIONARY_O) $(FM_O) \

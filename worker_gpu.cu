@@ -177,6 +177,7 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: launching kernel with %d blocks of %d threads\n", blocks.x, threads.x);
 			#endif
+			auto kernel_start_time = std::chrono::steady_clock::now();
 			kernel<<<blocks, threads>>>(
 				d_input_jobs,
 				d_dict,
@@ -205,6 +206,14 @@ public:
 				cudaCpuDeviceId
 			));
 			gpuErrChk(cudaDeviceSynchronize());
+			auto kernel_end_time = std::chrono::steady_clock::now();
+			cerr << "Worker_GPU device " << device_id
+				<< " kernel execution took "
+				<< std::chrono::duration_cast<std::chrono::milliseconds>(
+					kernel_end_time - kernel_start_time
+				).count()
+				<< " ms"
+				<< endl;
 			kernel_launch_error = cudaGetLastError();
 			if (kernel_launch_error != cudaSuccess) {
 				fprintf(
@@ -226,6 +235,7 @@ public:
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: copied results numbers list back to host from device %d\n", device_id);
 			#endif
+			auto job_writing_start = std::chrono::steady_clock::now();
 			//Job* h_write_pointer = new_jobs_buffer;
 			for (int64_t i = 0; i < max_input_jobs_per_iteration; i++) {
 				int64_t num_new_jobs_i = unified_num_new_jobs[i];
@@ -253,6 +263,14 @@ public:
 				);
 				//h_write_pointer += num_new_jobs_i;
 			}
+			auto job_writing_end = std::chrono::steady_clock::now();
+			cerr << "Worker_GPU device " << device_id
+				<< " writing new jobs took "
+				<< std::chrono::duration_cast<std::chrono::milliseconds>(
+					job_writing_end - job_writing_start
+				).count()
+				<< " ms"
+				<< endl;
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: total new jobs produced: %ld\n", num_new_jobs);
 			// read line to pause
@@ -265,8 +283,15 @@ public:
 			num_new_jobs = 0;
 			while (jobs_done < num_unfinished_jobs) {
 				//memset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
+				auto loopstart = std::chrono::steady_clock::now();
 				cudaMemset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
-
+				auto memset_time = std::chrono::steady_clock::now();
+				cerr << "Worker_GPU device " << device_id
+					<< " cudaMemset took "
+					<< std::chrono::duration_cast<std::chrono::milliseconds>(
+						memset_time - loopstart
+					).count()
+					<< " ms" << endl;
 
 				int64_t jobs_start = jobs_done;
 				int64_t jobs_end = jobs_start + max_input_jobs_per_iteration;
@@ -275,9 +300,10 @@ public:
 				}
 				int64_t num_input_jobs = jobs_end - jobs_start;
 				#ifdef TEST_WORKER_GPU
+				#endif
 				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end << " ("
 					 << num_input_jobs << " jobs).." << endl;
-				#endif
+				auto memcpy_start = std::chrono::steady_clock::now();
 				// copy input jobs to device
 				gpuErrChk(cudaMemcpy(
 					d_input_jobs,
@@ -285,14 +311,34 @@ public:
 					sizeof(Job) * num_input_jobs,
 					cudaMemcpyHostToDevice
 				));
+				auto memcpy_end = std::chrono::steady_clock::now();
+				cerr << "Worker_GPU device " << device_id
+					<< " cudaMemcpy of input jobs took "
+					<< std::chrono::duration_cast<std::chrono::milliseconds>(
+						memcpy_end - memcpy_start
+					).count()
+					<< " ms" << endl;
 				#ifdef TEST_WORKER_GPU
 				cerr << "Copied input jobs to device " << device_id << endl;
 				#endif
+				auto doJob_start = std::chrono::steady_clock::now();
 				// process each job
 				doJob(
 					d_input_jobs,
 					num_input_jobs
 				);
+				auto doJob_end = std::chrono::steady_clock::now();
+				auto doJob_jobs_per_second = (float)num_input_jobs /
+					std::chrono::duration_cast<std::chrono::duration<float>>(
+						doJob_end - doJob_start
+					).count();
+				cerr << "Worker_GPU device " << device_id
+					<< " doJob processing took "
+					<< std::chrono::duration_cast<std::chrono::milliseconds>(
+						doJob_end - doJob_start
+					).count()
+					<< " ms (" << doJob_jobs_per_second << " jobs/second)"
+					<< endl;
 				#ifdef TEST_WORKER_GPU
 				cerr << "finished doJob on device " << device_id << endl;
 				#endif
