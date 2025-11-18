@@ -285,6 +285,8 @@ public:
 				//memset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
 				auto loopstart = std::chrono::steady_clock::now();
 				cudaMemset(unified_num_new_jobs, 0, sizeof(int64_t) * max_input_jobs_per_iteration);
+
+				#ifdef WORKER_STATS
 				auto memset_time = std::chrono::steady_clock::now();
 				cerr << "Worker_GPU device " << device_id
 					<< " cudaMemset took "
@@ -292,6 +294,7 @@ public:
 						memset_time - loopstart
 					).count()
 					<< " ms" << endl;
+				#endif
 
 				int64_t jobs_start = jobs_done;
 				int64_t jobs_end = jobs_start + max_input_jobs_per_iteration;
@@ -303,7 +306,9 @@ public:
 				#endif
 				cerr << "Copying input jobs to device " << device_id << ": jobs " << jobs_start << " to " << jobs_end << " ("
 					 << num_input_jobs << " jobs).." << endl;
+				#ifdef WORKER_STATS
 				auto memcpy_start = std::chrono::steady_clock::now();
+				#endif
 				// copy input jobs to device
 				gpuErrChk(cudaMemcpy(
 					d_input_jobs,
@@ -311,22 +316,28 @@ public:
 					sizeof(Job) * num_input_jobs,
 					cudaMemcpyHostToDevice
 				));
+				#ifdef WORKER_STATS
 				auto memcpy_end = std::chrono::steady_clock::now();
+
 				cerr << "Worker_GPU device " << device_id
 					<< " cudaMemcpy of input jobs took "
 					<< std::chrono::duration_cast<std::chrono::milliseconds>(
 						memcpy_end - memcpy_start
 					).count()
 					<< " ms" << endl;
+				#endif
 				#ifdef TEST_WORKER_GPU
 				cerr << "Copied input jobs to device " << device_id << endl;
 				#endif
+				#ifdef WORKER_STATS
 				auto doJob_start = std::chrono::steady_clock::now();
+				#endif
 				// process each job
 				doJob(
 					d_input_jobs,
 					num_input_jobs
 				);
+				#ifdef WORKER_STATS
 				auto doJob_end = std::chrono::steady_clock::now();
 				auto doJob_jobs_per_second = (float)num_input_jobs /
 					std::chrono::duration_cast<std::chrono::duration<float>>(
@@ -339,21 +350,26 @@ public:
 					).count()
 					<< " ms (" << doJob_jobs_per_second << " jobs/second)"
 					<< endl;
+				#endif
 				#ifdef TEST_WORKER_GPU
 				cerr << "finished doJob on device " << device_id << endl;
 				#endif
 				jobs_done += num_input_jobs;
 			}
 			//cerr << "End of doJobs num_new_jobs=" << num_new_jobs << endl;
+			#ifdef WORKER_STATS
 			run_stats.jobs_processed = jobs_done;
+			#endif
 		}
 
 		virtual void postLoop() override
 		{
+			#ifdef WORKER_STATS
 			cerr << "Worker_GPU on device " << device_id << " processed "
 				<< run_stats.jobs_processed << " jobs at "
 				<< run_stats.getJobsPerSecond() << " jobs/second"
 				<< endl;
+			#endif
 		}
 
 		int64_t estimatedMemoryUsage()

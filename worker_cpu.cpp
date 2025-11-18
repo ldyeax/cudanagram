@@ -105,17 +105,21 @@ public:
 			Job& job = unfinished_jobs[i];
 			doJob(job);
 		}
+		#ifdef WORKER_STATS
 		run_stats.jobs_processed = num_unfinished_jobs;
+		#endif
 	}
 
 	virtual void postLoop() override
 	{
+		#ifdef WORKER_STATS
 		if (thread_id == 0) {
 			cerr << "Worker_CPU thread 0 processed "
 				<< run_stats.jobs_processed << " jobs at "
 				<< run_stats.getJobsPerSecond() << " jobs/second"
 				<< endl;
 		}
+		#endif
 	}
 };
 

@@ -27,6 +27,7 @@ namespace worker {
 		running,
 		ended
 	};
+	#ifdef WORKER_STATS
 	struct RunStats {
 		int64_t jobs_processed = 0;
 		int64_t new_jobs_created = 0;
@@ -44,6 +45,7 @@ namespace worker {
 			return (float)jobs_processed / duration.count();
 		}
 	};
+	#endif
 	/**
 	 * Worker is expected to be constructed in a new thread -
 	 *  it will enter its loop dirctly from the constructor.
@@ -102,8 +104,9 @@ namespace worker {
 				num_new_jobs = 0;
 			}
 		}
-		// start time variable
+		#ifdef WORKER_STATS
 		RunStats run_stats = {};
+		#endif
 		virtual void postLoop()
 		{
 
@@ -116,7 +119,7 @@ namespace worker {
 			//cerr << "Worker initialized, entering main loop" << endl;
 			worker_status = running;
 			getUnfinishedJobsFromDatabase();
-			string output_file_name = "sqlite/_worker_" + std::to_string(id) + "_output.txt";
+			string output_file_name = "sentences/_worker_" + std::to_string(id) + "_output.txt";
 			FILE* output_file = fopen(output_file_name.c_str(), "w");
 			if (output_file == nullptr) {
 				cerr << "Worker " << id << " failed to open output file " << output_file_name << endl;
@@ -124,7 +127,9 @@ namespace worker {
 			}
 			int64_t _count = 0;
 			while (num_unfinished_jobs > 0) {
+				#ifdef WORKER_STATS
 				run_stats.start_time = std::chrono::steady_clock::now();
+				#endif
 				_count++;
 				// cerr << "Worker " << id << " starting doJobs with "
 				// 	<< num_unfinished_jobs << " unfinished jobs at generation " << _count << endl;
@@ -133,7 +138,7 @@ namespace worker {
 				writeNewJobsToDatabase();
 				{
 					// //std::lock_guard<std::mutex> lock(global_print_mutex);
-					if (_count % 1024 == id * 4) {
+					if (_count % (id_ + 1) == id) {
 						if (id == 1) {
 							cerr << "Worker " << id << "writing sentences" << endl;
 						}
@@ -142,7 +147,9 @@ namespace worker {
 					}
 				}
 				getUnfinishedJobsFromDatabase();
+				#ifdef WORKER_STATS
 				run_stats.end_time = std::chrono::steady_clock::now();
+				#endif
 				postLoop();
 			}
 			database->printFoundSentences(dictionary, output_file);
