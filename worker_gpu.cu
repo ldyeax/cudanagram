@@ -447,7 +447,7 @@ public:
 			));
 			gpuErrChk(cudaDeviceSynchronize());
 			#ifdef TEST_WORKER_GPU
-			cerr << "Allocated d_num_new_jobs on device " << device_id << endl;
+			cerr << "Allocated unified_num_new_jobs " << device_id << endl;
 			#endif
 			gpuErrChk(cudaMemset(
 				unified_num_new_jobs,
