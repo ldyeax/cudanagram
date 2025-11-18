@@ -328,11 +328,12 @@ public:
 			max_input_jobs_per_iteration
 				= (freeMem - sizeof(Dictionary))
 					/
-					(sizeof(Job)
-						+ sizeof(Job) * max_new_jobs_per_job
-						+ sizeof(int64_t)
+					(
+						sizeof(Job)
+						// + sizeof(Job) * max_new_jobs_per_job - unified
+						// + sizeof(int64_t) - unified
 					);
-			max_input_jobs_per_iteration = max_input_jobs_per_iteration * 3L / 4L;
+			//max_input_jobs_per_iteration = max_input_jobs_per_iteration * 3L / 4L;
 			cerr << "max_input_jobs_per_iteration set to " << max_input_jobs_per_iteration << " based on free memory of "
 				 << freeMem << " bytes on device " << device_id << endl;
 
@@ -361,10 +362,10 @@ public:
 			// CUDA manages stack separately from device memory allocations.
 			cerr << "Kernel uses " << kernel_stack_size << " bytes of static local memory per thread on device " << device_id << endl;
 
-			cudaDeviceSetLimit(
+			/*cudaDeviceSetLimit(
 				cudaLimitStackSize,
 				4096
-			);
+			);*/
 
 			// Query current limits
 			size_t stackSize, heapSize;
@@ -422,7 +423,7 @@ public:
 			cerr << "Allocating sizeof(Job)*" << (max_new_jobs_per_job * max_input_jobs_per_iteration)
 				 << "="
 				 << sizeof(Job) * max_new_jobs_per_job * max_input_jobs_per_iteration
-				 << " bytes for d_new_jobs on device " << device_id << endl;
+				 << " bytes for unified_new_jobs on device " << device_id << endl;
 			#endif
 			gpuErrChk(cudaMallocManaged(
 				&unified_new_jobs,
@@ -435,12 +436,8 @@ public:
 			#ifdef TEST_WORKER_GPU
 			cerr << "Allocating sizeof(int64_t)*" << max_input_jobs_per_iteration << "="
 				 << sizeof(int64_t) * max_input_jobs_per_iteration
-				 << " bytes for d_num_new_jobs on device " << device_id << endl;
+				 << " bytes for unified_num_new_jobs on device " << device_id << endl;
 			#endif
-			// gpuErrChk(cudaMalloc(
-			// 	&d_num_new_jobs,
-			// 	sizeof(int64_t) * max_input_jobs_per_iteration
-			// ));
 			gpuErrChk(cudaMallocManaged(
 				&unified_num_new_jobs,
 				sizeof(int64_t) * max_input_jobs_per_iteration
