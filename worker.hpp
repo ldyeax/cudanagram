@@ -106,7 +106,7 @@ namespace worker {
 				writeNewJobsToDatabase();
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					if (_count % 1024 == 0) {
+					if (_count % 4096 == id * 4) {
 						database->printFoundSentences(dictionary, output_file);
 						fflush(output_file);
 					}
