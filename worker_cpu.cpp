@@ -91,7 +91,7 @@ public:
 	virtual int64_t getUnfinishedJobsBufferSize() override
 	{
 		//return 16384L;
-		return 65535L * 16L;
+		return 65535L * 8L;
 	}
 
 	virtual void doJobs() override
