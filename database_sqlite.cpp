@@ -522,7 +522,9 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 			throw std::runtime_error(error);
 		}
 		else {
+			#if TEST_DB
 			cerr << "Database " << impl->id << ": Inserted job with new job_id " << sqlite3_last_insert_rowid(txn->db) << endl;
+			#endif
 		}
 
 		// Reset for next iteration
