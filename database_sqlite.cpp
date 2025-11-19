@@ -231,7 +231,7 @@ Database::Database(std::string existing_db_name)
 const char* sqlite_db_pragmas =
 	"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
 	"PRAGMA journal_mode = OFF;"  // No journal for maximum speed
-	//"PRAGMA synchronous = OFF;"  // No fsync - data loss possible on crash
+	"PRAGMA synchronous = OFF;"  // No fsync - data loss possible on crash
 	"PRAGMA temp_store = MEMORY;"  // Keep temp tables in memory
 	"PRAGMA cache_size = -2000000;"  // 2GB cache
 	"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
@@ -466,7 +466,7 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 		error += sqlite3_errmsg(txn->db);
 		throw std::runtime_error(error);
 	}
-#ifdef DEBUG_WORKER_CPU
+#ifdef TEST_DB
 	bool any_sentence = false;
 #endif
 #ifdef TEST_DB
@@ -479,7 +479,7 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 		// j.print();
 		#endif
 
-		#ifdef DEBUG_WORKER_CPU
+		#ifdef TEST_DB
 		if (j.frequency_map.isAllZero() && !j.finished) {
 			cerr << "writeNewJobs: all-zero frequency map in job to be written to database " << db_name << endl;
 			j.print();
@@ -500,7 +500,7 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 		sqlite3_bind_int(stmt, 3, j.start);
 		sqlite3_bind_int(stmt, 4, j.finished ? 1 : 0);
 		sqlite3_bind_int(stmt, 5, j.is_sentence ? 1 : 0);
-		#ifdef DEBUG_WORKER_CPU
+		#ifdef TEST_DB
 		if (j.is_sentence) {
 			for (int32_t iii = 0; iii < 10; iii++)
 				cerr << "Writing sentence job: " << endl;
@@ -522,9 +522,12 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 		// Reset for next iteration
 		sqlite3_reset(stmt);
 	}
+	#if TEST_DB
+	cerr << "Database " << impl->id << ": Finished writing jobs, finalizing statement" << endl;
+	#endif
 
 	sqlite3_finalize(stmt);
-#ifdef DEBUG_WORKER_CPU
+#ifdef TEST_DB
 cerr << "Database " << impl->id << ": Finished writing " << length << " jobs to database" << endl;
 	if (!any_sentence) {
 		cerr << "  (no sentences)" << endl;
