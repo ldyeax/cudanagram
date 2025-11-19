@@ -278,7 +278,9 @@ namespace worker {
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
 					database_name = (char*)database->db_name.c_str();
-					//cerr << "Worker database name: " << database_name << endl;
+					#ifdef TEST_DB
+					cerr << "Worker database name: " << database_name << endl;
+					#endif
 				}
 				database->setJobIDIncrementStart(0x7FFFFFFF);
 				dictionary = dict;
