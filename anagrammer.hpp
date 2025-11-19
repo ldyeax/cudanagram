@@ -24,6 +24,7 @@ using std::string;
 using worker::Worker;
 using worker::WorkerFactory;
 namespace anagrammer {
+
 	class Anagrammer {
 	private:
 		Dictionary* dict;

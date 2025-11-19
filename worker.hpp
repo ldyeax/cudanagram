@@ -22,6 +22,7 @@ namespace worker {
 	extern int64_t max_cpu_threads;
 	extern int64_t max_gpu_devices;
 	extern bool delay_sentences;
+	extern atomic<bool> terminated;
 
 	enum WorkerStatus {
 		uninitialized,
@@ -128,7 +129,7 @@ namespace worker {
 				throw std::runtime_error("Failed to open worker output file");
 			}
 			int64_t _count = 0;
-			while (num_unfinished_jobs > 0) {
+			while (!terminated.load() && num_unfinished_jobs > 0) {
 				#ifdef WORKER_STATS
 				run_stats.start_time = std::chrono::steady_clock::now();
 				#endif
@@ -157,10 +158,13 @@ namespace worker {
 				#endif
 				postLoop();
 			}
-			database->printFoundSentences(dictionary, output_file);
+			if (!terminated.load()) {
+				database->printFoundSentences(dictionary, output_file);
+			}
 			fclose(output_file);
 			cerr << "Worker " << id << " finished all jobs, exiting loop" << endl;
 			worker_status = ended;
+			database->close();
 		}
 	public:
 		atomic<WorkerStatus> worker_status = uninitialized;

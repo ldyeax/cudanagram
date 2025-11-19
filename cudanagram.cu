@@ -28,18 +28,20 @@ using std::string;
 int64_t worker::max_cpu_threads = -1;
 int64_t worker::max_gpu_devices = -1;
 bool worker::delay_sentences = false;
+atomic<bool> worker::terminated {false};
 
 void handler(int sig) {
-  void *array[10];
-  size_t size;
+//   void *array[10];
+//   size_t size;
 
-  // get void*'s for all entries on the stack
-  size = backtrace(array, 10);
+//   // get void*'s for all entries on the stack
+//   size = backtrace(array, 10);
 
-  // print out all the frames to stderr
-  fprintf(stderr, "Error: signal %d:\n", sig);
-  backtrace_symbols_fd(array, size, STDERR_FILENO);
-  exit(1);
+//   // print out all the frames to stderr
+//   fprintf(stderr, "Error: signal %d:\n", sig);
+//   backtrace_symbols_fd(array, size, STDERR_FILENO);
+//   exit(1);
+	worker::terminated = true;
 }
 
 int printUsage(int argc, char** argv)
@@ -63,6 +65,7 @@ int main(int argc, char** argv)
 {
 	signal(SIGSEGV, handler);
 	signal(SIGABRT, handler);
+	signal(SIGINT, handler);
 
 	if (argc < 2) {
 		return printUsage(argc, argv);

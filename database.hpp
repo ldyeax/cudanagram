@@ -80,6 +80,7 @@ namespace database {
 		// int64_t finishJobs_buffer_size = 0;
 		TxnContainer beginTransaction();
 		virtual void commitTransaction(Txn* txn) override;
+		void close();
 		~Database();
 		Database(bool memory);
 		Database();

@@ -197,6 +197,16 @@ void Database::commitTransaction(Txn* txn)
 	delete txn;
 }
 
+void Database::close()
+{
+	if (impl != nullptr) {
+		if (impl->db != nullptr) {
+			sqlite3_close(impl->db);
+			impl->db = nullptr;
+		}
+	}
+}
+
 Database::~Database()
 {
 	if (impl != nullptr) {
