@@ -82,8 +82,9 @@ struct database::Txn {
 
 	Txn(Impl* p_impl) :
 			db(p_impl->db),
-			committed(false),
+			committed(false)
 			//lock(p_impl->mutex, std::defer_lock)
+
 	{
 		//bool got_lock = false;
 		// {
