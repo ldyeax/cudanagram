@@ -239,7 +239,7 @@ const char* sqlite_db_pragmas =
 	"PRAGMA auto_vacuum = NONE;"  // Disable auto-vacuum overhead
 	"PRAGMA count_changes = OFF;"  // Don't count changes
 	"PRAGMA query_only = OFF;"  // Allow writes
-	//"PRAGMA read_uncommitted = ON;"  // Allow dirty reads (single connection so safe)
+	"PRAGMA read_uncommitted = ON;"  // Allow dirty reads (single connection so safe)
 ;
 void Database::create_db()
 {
