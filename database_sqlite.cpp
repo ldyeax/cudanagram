@@ -192,6 +192,8 @@ std::string Database::getNewDatabaseName()
 void Database::init()
 {
 	impl = new Impl;
+	fprintf(stderr, "Initialized database impl at %p for database at %p\n", (void*)impl, (void*)this);
+	fprintf(stderr, "impl->db = %p\n", (void*)impl->db);
 }
 
 TxnContainer Database::beginTransaction()
@@ -427,9 +429,11 @@ Database::Database(bool p_memory)
 }
 Database::Database()
 {
+	fprintf(stderr, "Creating database at %p\n", (void*)this);
 	memory = use_memory_db;
 	init();
 	create_db();
+	fprintf(stderr, "Database() impl->db = %p\n", (void*)impl->db);
 	// Don't call connect() for in-memory databases - connection is already open from create_db()
 	// connect() would create a NEW empty in-memory database
 }
