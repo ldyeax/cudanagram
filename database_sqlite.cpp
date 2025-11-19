@@ -477,6 +477,7 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 		#ifdef TEST_DB
 		cerr << "Writing job.." << endl;
 		cerr << "Database " << impl->id << ": Writing job to database: " << endl;
+		fprintf(stderr, "Job at %p\n", (void*)&j);
 		j.print();
 		#endif
 
