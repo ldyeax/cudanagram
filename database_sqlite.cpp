@@ -470,7 +470,7 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 	bool any_sentence = false;
 #endif
 #ifdef TEST_DB
-	cerr << "Database " << impl->id << ": Prepared insert statement for writing jobs" << endl;
+	cerr << "Database " << impl->id << ": Prepared insert statement for writing jobs length=" << length << endl;
 #endif
 	for (int64_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
@@ -517,6 +517,9 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 			error += sqlite3_errmsg(txn->db);
 			sqlite3_finalize(stmt);
 			throw std::runtime_error(error);
+		}
+		else {
+			cerr << "Database " << impl->id << ": Inserted job with new job_id " << sqlite3_last_insert_rowid(txn->db) << endl;
 		}
 
 		// Reset for next iteration
