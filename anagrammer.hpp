@@ -30,7 +30,7 @@ namespace anagrammer {
 		Dictionary* dict;
 		string input;
 
-		atomic<atomic<Worker*>*> volatile workers;
+		atomic<Worker*> workers[1024];
 		atomic<int64_t> num_workers;
 
 		shared_ptr<vector<Job>> initial_jobs;
@@ -41,7 +41,10 @@ namespace anagrammer {
 			bool resume
 		)
 		{
-			workers = new atomic<Worker*>[1024];
+			//workers = new atomic<Worker*>[1024];
+			for (int i = 0; i < 1024; i++) {
+				workers[i].store(nullptr);
+			}
 			num_workers = 0;
 			int64_t total_threads = 0;
 			vector<WorkerFactory*> factories = {};
@@ -130,9 +133,10 @@ namespace anagrammer {
 					//continue;
 
 					// Get the pointer from the atomic and offset it
-					atomic<Worker*>* workers_ptr = workers.load();
+					//atomic<Worker*>* workers_ptr = workers.load();
 					num_workers += f->spawn(
-						workers_ptr + num_workers,
+						//workers_ptr + num_workers,
+						&workers[num_workers],
 						dict,
 						initial_jobs_buffer,
 						num_jobs_for_factory,
@@ -187,7 +191,7 @@ namespace anagrammer {
 						break;
 					}
 					num_workers += f->spawn(
-						workers.load() + num_workers,
+						&workers[num_workers],
 						dict,
 						existing_databases.data() + num_workers,
 						db_to_give
@@ -198,10 +202,10 @@ namespace anagrammer {
 			bool all_initialized = false;
 			while (!all_initialized) {
 				for (int64_t i = 0; i < num_workers; i++) {
-					if (workers.load()[i].load() == nullptr) {
+					if (workers[i].load() == nullptr) {
 						{
 							//std::lock_guard<std::mutex> lock(global_print_mutex);
-							cerr << "Worker " << i << " at " << &(workers.load()[i]) << " is null.." << endl;
+							cerr << "Worker " << i << " at " << &workers[i] << " is null.." << endl;
 						}
 						goto still_uninitialized;
 					}
