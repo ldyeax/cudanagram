@@ -129,7 +129,8 @@ namespace worker {
 				throw std::runtime_error("Failed to open worker output file");
 			}
 			int64_t _count = 0;
-			while (!terminated.load() && num_unfinished_jobs > 0) {
+
+			do {
 				#ifdef WORKER_STATS
 				run_stats.start_time = std::chrono::steady_clock::now();
 				#endif
@@ -157,12 +158,13 @@ namespace worker {
 				run_stats.end_time = std::chrono::steady_clock::now();
 				#endif
 				postLoop();
-			}
+			} while (!terminated.load() && num_unfinished_jobs > 0);
+
 			if (!terminated.load()) {
 				database->printFoundSentences(dictionary, output_file);
 			}
 			fclose(output_file);
-			cerr << "Worker " << id << " finished all jobs, exiting loop" << endl;
+			cerr << "Worker " << id << " finished all jobs, exiting loop (terminated=" << terminated.load() << ")" << endl;
 			worker_status = ended;
 			database->close();
 		}
