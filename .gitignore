@@ -1,4 +1,5 @@
 .vscode
+sentences/**
 external/**
 sqlite/**
 cudanagram
