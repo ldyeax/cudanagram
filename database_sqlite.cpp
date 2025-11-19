@@ -57,7 +57,7 @@ bool database::use_memory_db = false;
 bool database::gpu_memory_db = false;
 
 struct database::Impl {
-	std::mutex mutex;
+	//std::mutex mutex;
 	sqlite3* db = nullptr;
 	Database* parent = nullptr;
 	int64_t id = 0;
@@ -78,16 +78,20 @@ struct database::Txn {
 	bool committed;
 
 	Impl* impl;
-	std::unique_lock<std::mutex> lock;
+	//std::unique_lock<std::mutex> lock;
 
-	Txn(Impl* p_impl) : db(p_impl->db), committed(false), lock(p_impl->mutex, std::defer_lock) {
-		bool got_lock = false;
+	Txn(Impl* p_impl) :
+			db(p_impl->db),
+			committed(false),
+			//lock(p_impl->mutex, std::defer_lock)
+	{
+		//bool got_lock = false;
 		// {
 		// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
 		// 	cerr << "Txn: Acquiring DB mutex lock for database id " << p_impl->id << endl;
 		// }
 		try {
-			got_lock = lock.try_lock();
+			//got_lock = lock.try_lock();
 			// if (got_lock) {
 			// 	{
 			// 		//std::lock_guard<std::mutex> lock(global_print_mutex);
@@ -101,13 +105,13 @@ struct database::Txn {
 			}
 			throw new std::runtime_error("Failed to acquire DB mutex lock");
 		}
-		if (!got_lock) {
-			{
-				//std::lock_guard<std::mutex> lock(global_print_mutex);
-				cerr << "Txn: Failed to acquire DB mutex lock for database id " << p_impl->id << endl;
-			}
-			throw new std::runtime_error("Failed to acquire DB mutex lock");
-		}
+		// if (!got_lock) {
+		// 	{
+		// 		//std::lock_guard<std::mutex> lock(global_print_mutex);
+		// 		cerr << "Txn: Failed to acquire DB mutex lock for database id " << p_impl->id << endl;
+		// 	}
+		// 	throw new std::runtime_error("Failed to acquire DB mutex lock");
+		// }
 		impl = p_impl;
 		char* err_msg = nullptr;
 		if (sqlite3_exec(db, "BEGIN TRANSACTION", nullptr, nullptr, &err_msg) != SQLITE_OK) {
@@ -155,7 +159,7 @@ struct database::Txn {
 		// 	}
 		// }
 		// Ensure lock released
-		lock.unlock();
+		//lock.unlock();
 		// {
 		// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
 		// 	cerr << "~Txn: Released DB mutex lock for database id " << impl->id << endl;
