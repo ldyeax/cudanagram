@@ -261,6 +261,7 @@ class WorkerFactory_CPU : public WorkerFactory {
 				cerr << "Created thread for worker " << i << endl;
 			}
 			t1.detach();
+			cerr << "detached thread for worker " << i << endl;
 			jobs_given += jobs_to_give;
 		}
 		return num_threads;
