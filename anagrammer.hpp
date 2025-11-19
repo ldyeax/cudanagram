@@ -61,16 +61,37 @@ namespace anagrammer {
 			for (auto& f : factories) {
 				total_threads += f->getTotalThreads();
 			}
-
+			dictionary::InitialJobsCreation initial_jobs;
 			if (!resume) {
-				auto initial_jobs = dict->createInitialJobs(
+				initial_jobs = dict->createInitialJobs(
 					total_threads
 				);
 
+				if (initial_jobs.unfinished_jobs == nullptr) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "No initial unfinished jobs vector created" << endl;
+					}
+					return;
+				}
 				if (initial_jobs.unfinished_jobs->size() == 0) {
 					{
 						//std::lock_guard<std::mutex> lock(global_print_mutex);
 						cerr << "No initial unfinished jobs created" << endl;
+					}
+					return;
+				}
+				if (initial_jobs.non_sentence_finished_jobs == nullptr) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "No initial non-sentence finished jobs vector created" << endl;
+					}
+					return;
+				}
+				if (initial_jobs.sentence_finished_jobs == nullptr) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "No initial sentence finished jobs vector created" << endl;
 					}
 					return;
 				}
