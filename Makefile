@@ -50,7 +50,7 @@ FM_O = frequency_map.o
 DICTIONARY_O = dictionary.o
 
 #GPP_DEBUG_FLAGS = -g -O0 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
-GPP_DEBUG_FLAGS = -g -O0 -rdynamic -march=native -mavx2 -mfma -std=c++17 -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
+GPP_DEBUG_FLAGS = -g -O0 -march=native -mavx2 -mfma -std=c++17 -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
 
 ifdef TEST_WORKER_GPU
 	GPP_FLAGS  += -DTEST_WORKER_GPU
