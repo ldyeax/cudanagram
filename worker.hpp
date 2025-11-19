@@ -138,7 +138,7 @@ namespace worker {
 				// cerr << "Worker " << id << " starting doJobs with "
 				// 	<< num_unfinished_jobs << " unfinished jobs at generation " << _count << endl;
 				database::TxnContainer txn = database->beginTransaction();
-				fprintf(stderr, "beginTransaction returned txn->db=%p\n", txn.db);
+				//fprintf(stderr, "beginTransaction returned txn->db=%p\n", txn.db);
 				getUnfinishedJobsFromDatabase(txn);
 				doJobs(txn);
 				writeNewJobsToDatabase(txn);
