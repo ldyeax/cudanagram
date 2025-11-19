@@ -12,7 +12,7 @@
  * );
  */
 
-// #define SQLITE_TEST
+// #define TEST_DB
 
 #include "database.hpp"
 #include <iostream>
@@ -292,7 +292,7 @@ void Database::create_db()
 	}
 	else {
 		//std::lock_guard<std::mutex> lock(global_print_mutex);
-		//cerr << "Set pragmas for database " << db_name << endl;
+		cerr << "Set pragmas for database " << db_name << endl;
 	}
 
 	// Create table
@@ -322,7 +322,9 @@ void Database::create_db()
 	}
 	else {
 		//std::lock_guard<std::mutex> lock(global_print_mutex);
-		//cerr << "Created job table in database " << db_name << endl;
+		#if TEST_DB
+		cerr << "Created job table in database " << db_name << endl;
+		#endif
 	}
 
 	// Don't create index during initial creation - it slows down bulk inserts
@@ -343,7 +345,7 @@ void Database::create_db()
 
 void Database::connect()
 {
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	{
 		//std::lock_guard<std::mutex> lock(global_print_mutex);
 		cerr << "Connecting to SQLite db: " << db_name << endl;
@@ -440,7 +442,7 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length)
  */
 void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 {
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Writing " << length << " jobs to database " << db_name;
 	fprintf(stderr, " txn->db=%p\n", txn->db);
 	#endif
@@ -467,12 +469,12 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 #ifdef DEBUG_WORKER_CPU
 	bool any_sentence = false;
 #endif
-#ifdef SQLITE_TEST
+#ifdef TEST_DB
 	cerr << "Database " << impl->id << ": Prepared insert statement for writing jobs" << endl;
 #endif
 	for (int64_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
-		#ifdef SQLITE_TEST
+		#ifdef TEST_DB
 		// cerr << "Database " << impl->id << ": Writing job to database: " << endl;
 		// j.print();
 		#endif
@@ -554,7 +556,7 @@ cerr << "Database " << impl->id << ": Finished writing " << length << " jobs to 
 	}
 #endif
 
-#ifdef SQLITE_TEST
+#ifdef TEST_DB
 	cerr << "Done writing " << length << " jobs to database " << db_name << endl;
 #endif
 }
@@ -805,12 +807,12 @@ void Database::getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn)
 		j.job_id = -1; // unknown
 		j.parent_job_id = parent_id;
 		j.start = start;
-		#ifdef SQLITE_TEST
+		#ifdef TEST_DB
 		cerr << "Found sentence job: parent_id=" << parent_id << ", start=" << start << endl;
 		#endif
 		out_jobs.push_back(j);
 	}
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Exiting getFoundSentenceJobs with " << out_jobs.size() << " jobs found" << endl;
 	#endif
 
@@ -875,19 +877,19 @@ void rowToJob(sqlite3_stmt* stmt, job::Job& j)
 
 int64_t Database::getUnfinishedJobs(int64_t length, Job* buffer)
 {
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Database::getUnfinishedJobs called with length " << length << endl;
 	#endif
 	Txn txn(impl);
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Started transaction for getUnfinishedJobs" << endl;
 	#endif
 	int64_t out_count = getUnfinishedJobs(length, buffer, &txn);
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Fetched " << out_count << " unfinished jobs" << endl;
 	#endif
 	txn.commit();
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Committed transaction for getUnfinishedJobs" << endl;
 	#endif
 	return out_count;
@@ -1010,7 +1012,7 @@ void Database::setJobIDIncrementStart(int64_t start)
 	char* err_msg = nullptr;
 	string seq_sql =
 		"UPDATE sqlite_sequence SET seq = " + std::to_string(start) + " WHERE name = 'job';";
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Setting job_id increment start with SQL: " << seq_sql << endl;
 	#endif
 
@@ -1023,7 +1025,7 @@ void Database::setJobIDIncrementStart(int64_t start)
 		throw std::runtime_error(error);
 	}
 
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Set job_id increment start to " << start << endl;
 	// fetch start from db
 	const char* fetch_sql = "SELECT seq FROM sqlite_sequence WHERE name = 'job';";
@@ -1050,7 +1052,7 @@ void Database::setJobIDIncrementStart(int64_t start)
 int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Database::getUnfinishedJobs called with length " << length << endl;
 	#endif
 	if (length <= 0) {
@@ -1068,7 +1070,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 		"LIMIT " + std::to_string(length);
 
 
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Preparing select query: " << select_query << endl;
 	#endif
 
@@ -1086,7 +1088,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && out_count < length) {
 		Job& j = buffer[out_count];
 		rowToJob(stmt, j);
-		#ifdef SQLITE_TEST
+		#ifdef TEST_DB
 		cerr << "Database " << impl->id << ": Fetched unfinished job: " << endl;
 		j.print();
 		#endif
@@ -1097,18 +1099,18 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 	sqlite3_finalize(stmt);
 
 	// if (out_count < length) {
-	// 	#ifdef SQLITE_TEST
+	// 	#ifdef TEST_DB
 	// 	cerr << "Fetching unfinished jobs from " << impl->children.size() << " child databases" << endl;
 	// 	cerr << "start out_count = " << out_count << endl;
 	// 	fprintf(stderr, "start buffer=%p\n", buffer);
 	// 	#endif
 	// 	for (auto child_db : impl->children) {
-	// 		#ifdef SQLITE_TEST
+	// 		#ifdef TEST_DB
 	// 		cerr << "Fetching unfinished jobs from child database " << child_db->impl->id;
 	// 		fprintf(stderr, " into &buffer[out_count]=%p\n", &buffer[out_count]);
 	// 		#endif
 	// 		int64_t child_count = child_db->getUnfinishedJobs(length - out_count, &buffer[out_count]);
-	// 		#ifdef SQLITE_TEST
+	// 		#ifdef TEST_DB
 	// 		cerr << "Fetched " << child_count << " unfinished jobs from child database "
 	// 			 << child_db->impl->id << endl;
 	// 		#endif
@@ -1124,19 +1126,19 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 
 int64_t Database::getUnfinishedJobs(int64_t length, vector<Job>* buffer)
 {
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Database::getUnfinishedJobs called with length " << length << endl;
 	#endif
 	Txn txn(impl);
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Started transaction for getUnfinishedJobs" << endl;
 	#endif
 	int64_t out_count = getUnfinishedJobs(length, buffer, &txn);
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Fetched " << out_count << " unfinished jobs" << endl;
 	#endif
 	txn.commit();
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Committed transaction for getUnfinishedJobs" << endl;
 	#endif
 	return out_count;
@@ -1145,7 +1147,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, vector<Job>* buffer)
 int64_t Database::getUnfinishedJobs(int64_t length, vector<Job>* buffer, Txn* txn)
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Database::getUnfinishedJobs called with length " << length << " and buffer with size " << buffer->size() << endl;
 	#endif
 	if (length <= 0) {
@@ -1175,7 +1177,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, vector<Job>* buffer, Txn* tx
 		"LIMIT " + std::to_string(length);
 
 
-	#ifdef SQLITE_TEST
+	#ifdef TEST_DB
 	cerr << "Preparing select query: " << select_query << endl;
 	#endif
 
@@ -1194,7 +1196,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, vector<Job>* buffer, Txn* tx
 		buffer->push_back(Job());
 		Job& j = buffer->back();
 		rowToJob(stmt, j);
-		#ifdef SQLITE_TEST
+		#ifdef TEST_DB
 		cerr << "Database " << impl->id << ": Fetched unfinished job: " << endl;
 		j.print();
 		#endif
