@@ -137,7 +137,7 @@ namespace worker {
 
 				doJobs();
 				writeNewJobsToDatabase();
-				{
+				if (!delay_sentences){
 					// //std::lock_guard<std::mutex> lock(global_print_mutex);'
 					bool my_turn = (_count % (id_ * 100)) == (id * 100);
 					if (my_turn) {
