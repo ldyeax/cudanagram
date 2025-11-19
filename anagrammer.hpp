@@ -180,7 +180,7 @@ namespace anagrammer {
 				}
 				num_workers = 0;
 				for (auto& f : factories) {
-					int64_t db_to_give 
+					int64_t db_to_give
 						= existing_databases.size() - num_workers;
 					if (db_to_give <= 0) {
 						break;
@@ -188,12 +188,12 @@ namespace anagrammer {
 					num_workers += f->spawn(
 						workers.load() + num_workers,
 						dict,
-						existing_databases.data() + num_workers, 
+						existing_databases.data() + num_workers,
 						db_to_give
 					);
 				}
 
-			}	
+			}
 			bool all_initialized = false;
 			while (!all_initialized) {
 				for (int64_t i = 0; i < num_workers; i++) {
@@ -234,6 +234,12 @@ still_uninitialized:
 		{
 			if (!use_cpu && !use_gpu) {
 				throw;
+			}
+			if (resume) {
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Resuming from existing databases" << endl;
+				}
 			}
 			dict = new Dictionary(
 				(char*)p_input.c_str(),
