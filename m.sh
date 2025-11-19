@@ -1,3 +1,3 @@
 rm -f sqlite/*
-rm -rf sentences/*
+rm -f sentences/*
 ./cudanagram --dictionary mementomoriiftheninethlionatethesun.txt --input mementomoriiftheninethlionatethesun $1

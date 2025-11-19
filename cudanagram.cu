@@ -48,13 +48,14 @@ int printUsage(int argc, char** argv)
 		<< "\t" << argv[0] << endl
 		<< "\t\t[--input] <input_string>" << endl
 		<< "\t\t[--dictionary <dictionary_file>]" << endl
-		//<< "\t\t[--continue <database_name>] " << endl
 		<< "\t\t[--no-cpu]" << endl
 		<< "\t\t[--no-gpu]" << endl
 		<< "\t\t[--max-cpu-threads <num_threads>]" << endl
 		<< "\t\t[--max-gpu-devices <num_devices>]" << endl
-		<< "\t\t[--memory-db]" << endl
-		<< "\t\t[--delay-sentences] (delay writing sentences to files)" << endl;
+		<< "\t\t[--memory-db] (use memory db for all workers)" << endl
+		<< "\t\t[--gpu-memory-db] (use memory db for gpu workers)" << endl
+		<< "\t\t[--delay-sentences] (delay writing sentences to files)" << endl
+		<< "\t\t[--resume]" << endl;
 	return 1;
 }
 
@@ -72,6 +73,7 @@ int main(int argc, char** argv)
 	//string continue_db = "";
 	//bool print_dict = false;
 	string dict_filename = "dictionary.txt";
+	bool resume = false;
 	for (int i = 1; i < argc; i++) {
 		string arg(argv[i]);
 		cerr << "Arg " << i << ": " << arg << endl;
@@ -111,6 +113,9 @@ int main(int argc, char** argv)
 		else if (arg == "--memory-db") {
 			database::use_memory_db = true;
 		}
+		else if (arg == "--gpu-memory-db") {
+			database::gpu_memory_db = true;
+		}
 		else if (arg == "--delay-sentences") {
 			worker::delay_sentences = true;
 		}
@@ -125,7 +130,8 @@ int main(int argc, char** argv)
 		input,
 		use_cpu,
 		use_gpu,
-		dict_filename
+		dict_filename,
+		resume
 	);
 
 	return 0;
