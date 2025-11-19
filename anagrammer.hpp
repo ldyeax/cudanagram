@@ -33,7 +33,7 @@ namespace anagrammer {
 		atomic<Worker*> workers[1024];
 		atomic<int64_t> num_workers;
 
-		shared_ptr<vector<Job>> initial_jobs;
+		//shared_ptr<vector<Job>> initial_jobs;
 
 		void spawnWorkers(
 			bool use_cpu,
