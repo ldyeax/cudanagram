@@ -193,7 +193,6 @@ void Database::init()
 {
 	impl = new Impl;
 	fprintf(stderr, "Initialized database impl at %p for database at %p\n", (void*)impl, (void*)this);
-	fprintf(stderr, "impl->db = %p\n", (void*)impl->db);
 }
 
 TxnContainer Database::beginTransaction()
