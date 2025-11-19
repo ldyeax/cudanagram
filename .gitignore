@@ -1,3 +1,4 @@
+.vscode
 external/**
 sqlite/**
 cudanagram

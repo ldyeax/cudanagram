@@ -15,6 +15,8 @@ using std::cerr;
 using std::endl;
 
 namespace database {
+	extern bool use_memory_db;
+
 	struct Impl;
 	struct Txn;
 	class DatabaseBase {

@@ -53,6 +53,8 @@ using std::make_shared;
 
 std::atomic<int64_t> database_id {1};
 
+bool database::use_memory_db = false;
+
 struct database::Impl {
 	std::mutex mutex;
 	sqlite3* db = nullptr;
@@ -167,9 +169,11 @@ databaseType_t Database::getDatabaseType()
 
 std::string Database::getNewDatabaseName()
 {
+	if (database::use_memory_db) {
+		return ":memory:";
+	}
 	auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
 	return "sqlite/cudanagram_" + current_unix_timestamp + ".db";
-	//return ":memory:";
 }
 
 void Database::init()

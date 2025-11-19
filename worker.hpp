@@ -21,6 +21,7 @@ using std::atomic;
 namespace worker {
 	extern int64_t max_cpu_threads;
 	extern int64_t max_gpu_devices;
+	extern bool delay_sentences;
 
 	enum WorkerStatus {
 		uninitialized,
@@ -113,8 +114,8 @@ namespace worker {
 		}
 		void loop()
 		{
-			static int id_ = 0;
-			int id = ++id_;
+			static atomic<int> id_ = 0;
+			int id = id_.fetch_add(1);
 			init();
 			//cerr << "Worker initialized, entering main loop" << endl;
 			worker_status = running;
@@ -137,14 +138,16 @@ namespace worker {
 				doJobs();
 				writeNewJobsToDatabase();
 				{
-					// //std::lock_guard<std::mutex> lock(global_print_mutex);
-					if (_count % (id_ + 1) == id) {
+					// //std::lock_guard<std::mutex> lock(global_print_mutex);'
+					bool my_turn = (_count % (id_ * 100)) == (id * 100);
+					if (my_turn) {
 						if (id == 1) {
 							cerr << "Worker " << id << "writing sentences" << endl;
 						}
 						database->printFoundSentences(dictionary, output_file);
 						fflush(output_file);
 					}
+
 				}
 				getUnfinishedJobsFromDatabase();
 				#ifdef WORKER_STATS

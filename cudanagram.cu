@@ -27,6 +27,7 @@ using std::string;
 
 int64_t worker::max_cpu_threads = -1;
 int64_t worker::max_gpu_devices = -1;
+bool worker::delay_sentences = false;
 
 void handler(int sig) {
   void *array[10];
@@ -43,14 +44,17 @@ void handler(int sig) {
 
 int printUsage(int argc, char** argv)
 {
-	cerr << "Usage: " << argv[0] <<
-		" [--input] <input_string> "
-		"[--dictionary <dictionary_file>] "
-		"[--continue <database_name>] "
-		"[--no-cpu] [--no-gpu] "
-		"[--max-cpu-threads <num_threads>] "
-		"[--max-gpu-devices <num_devices>] "
-		"" << std::endl;
+	cerr << "Usage: "
+		<< "\t" << argv[0] << endl
+		<< "\t\t[--input] <input_string>" << endl
+		<< "\t\t[--dictionary <dictionary_file>]" << endl
+		//<< "\t\t[--continue <database_name>] " << endl
+		<< "\t\t[--no-cpu]" << endl
+		<< "\t\t[--no-gpu]" << endl
+		<< "\t\t[--max-cpu-threads <num_threads>]" << endl
+		<< "\t\t[--max-gpu-devices <num_devices>]" << endl
+		<< "\t\t[--memory-db]" << endl
+		<< "\t\t[--delay-sentences] (delay writing sentences to files)" << endl;
 	return 1;
 }
 
@@ -65,7 +69,7 @@ int main(int argc, char** argv)
 	bool use_cpu = true;
 	bool use_gpu = true;
 	string input = "";
-	string continue_db = "";
+	//string continue_db = "";
 	//bool print_dict = false;
 	string dict_filename = "dictionary.txt";
 	for (int i = 1; i < argc; i++) {
@@ -81,10 +85,10 @@ int main(int argc, char** argv)
 		else if (arg == "--no-gpu") {
 			use_gpu = false;
 		}
-		else if (arg == "--continue" && i + 1 < argc) {
-			continue_db = argv[i + 1];
-			i++;
-		}
+		// else if (arg == "--continue" && i + 1 < argc) {
+		// 	continue_db = argv[i + 1];
+		// 	i++;
+		// }
 		// else if (arg == "--print-dict") {
 		// 	print_dict = true;
 		// }
@@ -103,6 +107,12 @@ int main(int argc, char** argv)
 			cerr << "Setting max_gpu_devices = "
 				<< worker::max_gpu_devices << endl;
 			i++;
+		}
+		else if (arg == "--memory-db") {
+			database::use_memory_db = true;
+		}
+		else if (arg == "--delay-sentences") {
+			worker::delay_sentences = true;
 		}
 		else if (input == "") {
 			input = arg;
