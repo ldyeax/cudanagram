@@ -15,6 +15,9 @@ using std::cerr;
 using std::endl;
 
 namespace database {
+	extern bool use_memory_db;
+	extern bool gpu_memory_db;
+
 	struct Impl;
 	struct Txn;
 	class DatabaseBase {
@@ -55,11 +58,12 @@ namespace database {
 			}
 			#endif
 		}
-		// operator Txn*()
-		// {
-		// 	return txn;
-		// }
+		operator Txn*()
+		{
+		 	return txn;
+		}
 	};
+
 	class Database : public DatabaseBase {
 	private:
 		std::string getNewDatabaseName();
@@ -68,6 +72,7 @@ namespace database {
 		void connect();
 		void init();
 		bool using_cache = true;
+		bool memory = false;
 	public:
 		bool has_found_sentence;
 		databaseType_t getDatabaseType();
@@ -76,6 +81,7 @@ namespace database {
 		TxnContainer beginTransaction();
 		virtual void commitTransaction(Txn* txn) override;
 		~Database();
+		Database(bool memory);
 		Database();
 		Database(std::string existing_db_name);
 		// Write job to db, where its ID will be created
@@ -128,6 +134,8 @@ namespace database {
 		void getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn);
 		int64_t getSentenceJobCountSlow();
 	};
+
+	extern vector<Database*> getExistingDatabases();
 
 
 	// class Database_PSQL : public Database {

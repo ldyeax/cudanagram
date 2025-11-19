@@ -24,11 +24,10 @@ using std::string;
 using worker::Worker;
 using worker::WorkerFactory;
 namespace anagrammer {
-    class Anagrammer {
-
+	class Anagrammer {
 	private:
-        Dictionary* dict;
-        string input;
+		Dictionary* dict;
+		string input;
 
 		atomic<atomic<Worker*>*> volatile workers;
 		atomic<int64_t> num_workers;
@@ -37,7 +36,8 @@ namespace anagrammer {
 
 		void spawnWorkers(
 			bool use_cpu,
-			bool use_gpu
+			bool use_gpu,
+			bool resume
 		)
 		{
 			workers = new atomic<Worker*>[1024];
@@ -58,106 +58,142 @@ namespace anagrammer {
 				total_threads += f->getTotalThreads();
 			}
 
-			auto initial_jobs = dict->createInitialJobs(
-				total_threads
-			);
-
-			if (initial_jobs.unfinished_jobs->size() == 0) {
-				{
-					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					cerr << "No initial unfinished jobs created" << endl;
-				}
-				return;
-			}
-
-			// Shuffle the initial unfinished jobs to distribute workload evenly
-			{
-				auto& jobs = *initial_jobs.unfinished_jobs;
-				unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-				std::shuffle(jobs.begin(), jobs.end(), std::default_random_engine(seed));
-			}
-
-			#ifdef CUDANAGRAM_TESTING
-			for (auto& unfinished_job : *initial_jobs.unfinished_jobs) {
-				{
-					//std::lock_guard<std::mutex> lock(global_print_mutex);
-					// cerr << "Initial unfinished job: ";
-					// unfinished_job.print();
-					if (unfinished_job.finished) {
-						cerr << "ERROR: initial unfinished job is marked finished!" << endl;
-						throw;
-					}
-					if (unfinished_job.is_sentence) {
-						cerr << "ERROR: initial unfinished job is marked is_sentence!" << endl;
-						throw;
-					}
-					if (unfinished_job.frequency_map.isAllZero()) {
-						cerr << "ERROR: initial unfinished job has all-zero frequency map!" << endl;
-						throw;
-					}
-				}
-			}
-			#endif
-
-			int64_t total_jobs = initial_jobs.unfinished_jobs->size();
-
-			int64_t jobs_per_thread = total_jobs / total_threads;
-			Job* initial_jobs_buffer = initial_jobs.unfinished_jobs->data();
-			int64_t num_jobs_taken = 0;
-			cerr << factories.size() << " factories" << endl;
-			for (int64_t i = 0; i < (int64_t)factories.size(); i++) {
-				auto& f = factories[i];
-				int64_t num_jobs_for_factory
-					= f->getTotalThreads() * jobs_per_thread;
-				cerr << "num_jobs_for_factory.1 " << i << " = "
-					<< num_jobs_for_factory << endl;
-
-				if (i == (int64_t)factories.size() - 1) {
-					// Last factory takes all remaining jobs
-					num_jobs_for_factory = total_jobs - num_jobs_taken;
-				}
-				num_jobs_taken += num_jobs_for_factory;
-
-				cerr << "num_jobs_for_factory.2 " << i << " = "
-					<< num_jobs_for_factory << endl;
-
-				//continue;
-
-				// Get the pointer from the atomic and offset it
-				atomic<Worker*>* workers_ptr = workers.load();
-				num_workers += f->spawn(
-					workers_ptr + num_workers,
-					dict,
-					initial_jobs_buffer,
-					num_jobs_for_factory,
-					initial_jobs.non_sentence_finished_jobs
+			if (!resume) {
+				auto initial_jobs = dict->createInitialJobs(
+					total_threads
 				);
-				initial_jobs_buffer += num_jobs_for_factory;
-			}
 
-			{
-				//std::lock_guard<std::mutex> lock(global_print_mutex);
-				cerr << "Spawned " << num_workers
-					<< " workers for total of "
-					<< total_jobs << "(" << num_jobs_taken << ") jobs"
-					<< endl;
-			}
+				if (initial_jobs.unfinished_jobs->size() == 0) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "No initial unfinished jobs created" << endl;
+					}
+					return;
+				}
 
-			assert(num_jobs_taken == total_jobs);
-			{
-				//std::lock_guard<std::mutex> lock(global_print_mutex);
-				cerr << "Initial jobs vector buffer end at "
-					<< (void*)(initial_jobs.unfinished_jobs->data() + total_jobs)
-					<< ", current pointer at "
-					<< (void*)initial_jobs_buffer
-					<< endl;
-			}
-			assert(initial_jobs_buffer == initial_jobs.unfinished_jobs->data() + total_jobs);
+				// Shuffle the initial unfinished jobs to distribute workload evenly
+				{
+					auto& jobs = *initial_jobs.unfinished_jobs;
+					unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+					std::shuffle(jobs.begin(), jobs.end(), std::default_random_engine(seed));
+				}
 
-			{
-				//std::lock_guard<std::mutex> lock(global_print_mutex);
-				cerr << "Waiting for all workers to initialize..";
+				#ifdef CUDANAGRAM_TESTING
+				for (auto& unfinished_job : *initial_jobs.unfinished_jobs) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						// cerr << "Initial unfinished job: ";
+						// unfinished_job.print();
+						if (unfinished_job.finished) {
+							cerr << "ERROR: initial unfinished job is marked finished!" << endl;
+							throw;
+						}
+						if (unfinished_job.is_sentence) {
+							cerr << "ERROR: initial unfinished job is marked is_sentence!" << endl;
+							throw;
+						}
+						if (unfinished_job.frequency_map.isAllZero()) {
+							cerr << "ERROR: initial unfinished job has all-zero frequency map!" << endl;
+							throw;
+						}
+					}
+				}
+				#endif
+
+				int64_t total_jobs = initial_jobs.unfinished_jobs->size();
+
+				int64_t jobs_per_thread = total_jobs / total_threads;
+				Job* initial_jobs_buffer = initial_jobs.unfinished_jobs->data();
+				int64_t num_jobs_taken = 0;
+				cerr << factories.size() << " factories" << endl;
+				for (int64_t i = 0; i < (int64_t)factories.size(); i++) {
+					auto& f = factories[i];
+					int64_t num_jobs_for_factory
+						= f->getNumJobsToGive();
+					if (num_jobs_for_factory <= 0) {
+						num_jobs_for_factory
+							= f->getTotalThreads() * jobs_per_thread;
+					}
+					cerr << "num_jobs_for_factory.1 " << i << " = "
+						<< num_jobs_for_factory << endl;
+
+					if (i == (int64_t)factories.size() - 1) {
+						// Last factory takes all remaining jobs
+						num_jobs_for_factory = total_jobs - num_jobs_taken;
+					}
+					num_jobs_taken += num_jobs_for_factory;
+
+					cerr << "num_jobs_for_factory.2 " << i << " = "
+						<< num_jobs_for_factory << endl;
+
+					//continue;
+
+					// Get the pointer from the atomic and offset it
+					atomic<Worker*>* workers_ptr = workers.load();
+					num_workers += f->spawn(
+						workers_ptr + num_workers,
+						dict,
+						initial_jobs_buffer,
+						num_jobs_for_factory,
+						initial_jobs.non_sentence_finished_jobs
+					);
+					initial_jobs_buffer += num_jobs_for_factory;
+				}
+
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Spawned " << num_workers
+						<< " workers for total of "
+						<< total_jobs << "(" << num_jobs_taken << ") jobs"
+						<< endl;
+				}
+
+				assert(num_jobs_taken == total_jobs);
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Initial jobs vector buffer end at "
+						<< (void*)(initial_jobs.unfinished_jobs->data() + total_jobs)
+						<< ", current pointer at "
+						<< (void*)initial_jobs_buffer
+						<< endl;
+				}
+				assert(initial_jobs_buffer == initial_jobs.unfinished_jobs->data() + total_jobs);
+
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Waiting for all workers to initialize..";
+				}
 			}
+			else {
+				// List all .db files under ./sqlite/
+				vector<Database*> existing_databases = database::getExistingDatabases();
+				if (existing_databases.size() == 0) {
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "No existing databases found to resume from!" << endl;
+					throw;
+				}
+				}
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Resuming from " << existing_databases.size() << " databases" << endl;
+				}
+				num_workers = 0;
+				for (auto& f : factories) {
+					int64_t db_to_give 
+						= existing_databases.size() - num_workers;
+					if (db_to_give <= 0) {
+						break;
+					}
+					num_workers += f->spawn(
+						workers.load() + num_workers,
+						dict,
+						existing_databases.data() + num_workers, 
+						db_to_give
+					);
+				}
+
+			}	
 			bool all_initialized = false;
 			while (!all_initialized) {
 				for (int64_t i = 0; i < num_workers; i++) {
@@ -192,7 +228,8 @@ still_uninitialized:
 			string p_input,
 			bool use_cpu = true,
 			bool use_gpu = true,
-			string dictionary_filename = "dictionary.txt"
+			string dictionary_filename = "dictionary.txt",
+			bool resume = false
 		)
 		{
 			if (!use_cpu && !use_gpu) {
@@ -205,7 +242,7 @@ still_uninitialized:
 				0
 			);
 			input = p_input;
-			spawnWorkers(use_cpu, use_gpu);
+			spawnWorkers(use_cpu, use_gpu, resume);
 
 			bool all_finished = true;
 			do {

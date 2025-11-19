@@ -53,6 +53,9 @@ using std::make_shared;
 
 std::atomic<int64_t> database_id {1};
 
+bool database::use_memory_db = false;
+bool database::gpu_memory_db = false;
+
 struct database::Impl {
 	std::mutex mutex;
 	sqlite3* db = nullptr;
@@ -167,9 +170,11 @@ databaseType_t Database::getDatabaseType()
 
 std::string Database::getNewDatabaseName()
 {
+	if (memory) {
+		return ":memory:";
+	}
 	auto current_unix_timestamp = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
 	return "sqlite/cudanagram_" + current_unix_timestamp + ".db";
-	//return ":memory:";
 }
 
 void Database::init()
@@ -206,14 +211,27 @@ Database::Database(std::string existing_db_name)
 #ifdef TEST_DB
 	cerr << "Constructing Database object with existing db name: " << existing_db_name << endl;
 #endif
-	init();
 	db_name = existing_db_name;
+	init();
 	connect();
 #ifdef TEST_DB
 	cerr << "Connected to existing db" << endl;
 #endif
 }
 
+const char* sqlite_db_pragmas =
+	"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
+	"PRAGMA journal_mode = OFF;"  // No journal for maximum speed
+	//"PRAGMA synchronous = OFF;"  // No fsync - data loss possible on crash
+	"PRAGMA temp_store = MEMORY;"  // Keep temp tables in memory
+	"PRAGMA cache_size = -2000000;"  // 2GB cache
+	"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
+	"PRAGMA locking_mode = EXCLUSIVE;"  // No lock contention
+	"PRAGMA auto_vacuum = NONE;"  // Disable auto-vacuum overhead
+	"PRAGMA count_changes = OFF;"  // Don't count changes
+	"PRAGMA query_only = OFF;"  // Allow writes
+	//"PRAGMA read_uncommitted = ON;"  // Allow dirty reads (single connection so safe)
+;
 void Database::create_db()
 {
 	if (impl->parent != nullptr) {
@@ -251,33 +269,9 @@ void Database::create_db()
 
 	// Enable performance optimizations and multi-threading support
 	char* err_msg = nullptr;
-	const char* pragmas =
-		"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
-		"PRAGMA journal_mode = OFF;"  // No journal for maximum speed
-		"PRAGMA synchronous = OFF;"  // No fsync - data loss possible on crash
-		"PRAGMA temp_store = MEMORY;"  // Keep temp tables in memory
-		"PRAGMA cache_size = -16000000;"  // 16GB cache
-		"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
-		"PRAGMA locking_mode = EXCLUSIVE;"  // No lock contention
-		"PRAGMA auto_vacuum = NONE;"  // Disable auto-vacuum overhead
-		"PRAGMA count_changes = OFF;"  // Don't count changes
-		"PRAGMA query_only = OFF;"  // Allow writes
-		"PRAGMA read_uncommitted = ON;"  // Allow dirty reads (single connection so safe)
-	;
 	// allow multithreaded
 
-	// const char* pragmas =
-	// 	"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
-	// 	"PRAGMA journal_mode = WAL;"  // Memory journal for speed
-	// 	"PRAGMA synchronous = ON;"
-	// 	"PRAGMA temp_store = MEMORY;"
-	// 	"PRAGMA cache_size = -16000000;"  // 16GB cache
-	// 	"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
-	// 	"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
-	// 	// enablem utex
-
-	// ;
-	if (sqlite3_exec(impl->db, pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+	if (sqlite3_exec(impl->db, sqlite_db_pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
 		//std::lock_guard<std::mutex> lock(global_print_mutex);
 		string error = "Failed to set pragmas for database " + db_name + ": ";
 		cerr << error;
@@ -378,15 +372,8 @@ void Database::connect()
 
 	// Enable performance optimizations and multi-threading support
 	char* err_msg = nullptr;
-	const char* pragmas =
-		"PRAGMA synchronous = OFF;"
-		"PRAGMA journal_mode = WAL;"  // WAL mode allows concurrent readers
-		"PRAGMA temp_store = MEMORY;"
-		"PRAGMA cache_size = -2000000;"  // 2GB cache
-		"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
-		"PRAGMA busy_timeout = 2147483647;"; // Max int32 (~24 days) - effectively infinite
 
-	if (sqlite3_exec(impl->db, pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+	if (sqlite3_exec(impl->db, sqlite_db_pragmas, nullptr, nullptr, &err_msg) != SQLITE_OK) {
 		string error = "Failed to set pragmas: ";
 		cerr << error << endl;
 		if (err_msg) {
@@ -401,8 +388,15 @@ void Database::connect()
 	}
 }
 
+Database::Database(bool p_memory)
+{
+	memory = p_memory;
+	init();
+	create_db();
+}
 Database::Database()
 {
+	memory = use_memory_db;
 	init();
 	create_db();
 	// Don't call connect() for in-memory databases - connection is already open from create_db()
@@ -1256,4 +1250,26 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 
 	sqlite3_finalize(stmt);
 	return ret;
+}
+#include <filesystem>
+vector<Database*> database::getExistingDatabases()
+{
+	// search filesystem for .db files under ./sqlite/
+	vector<Database*> dbs;
+	string db_dir = "sqlite/";
+	for (const auto& entry : std::filesystem::directory_iterator(db_dir)) {
+		if (entry.is_regular_file()) {
+			string path = entry.path().string();
+			if (path.size() >= 3 && path.substr(path.size() - 3) == ".db") {
+				// found a .db file
+				try {
+					Database* db = new Database(path);
+					dbs.push_back(db);
+				} catch (const std::exception& e) {
+					cerr << "Failed to open database file " << path << ": " << e.what() << endl;
+				}
+			}
+		}
+	}
+	return dbs;
 }

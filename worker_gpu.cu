@@ -153,12 +153,12 @@ private:
 		std::thread h_thread;
 public:
 		int device_id;
-
-		virtual void writeNewJobsToDatabase() override
+		
+		virtual void writeNewJobsToDatabase(database::Txn* txn) override
 		{
 		}
 
-		void doJob(Job* d_input_jobs, int64_t p_count)
+		void doJob(Job* d_input_jobs, int64_t p_count, database::Txn* txn)
 		{
 			#ifdef TEST_WORKER_GPU
 			fprintf(stderr, "Worker_GPU::doJob: processing %ld jobs on device %d\n", p_count, device_id);
@@ -259,7 +259,8 @@ public:
 				// This is unified memory now
 				database->writeNewJobs(
 					unified_new_jobs + (i * max_new_jobs_per_job),
-					num_new_jobs_i
+					num_new_jobs_i,
+					txn
 				);
 				//h_write_pointer += num_new_jobs_i;
 			}
@@ -277,7 +278,7 @@ public:
 			#endif
 		}
 
-		void doJobs()
+		void doJobs(database::Txn* txn)
 		{
 			int64_t jobs_done = 0;
 			num_new_jobs = 0;
@@ -335,7 +336,8 @@ public:
 				// process each job
 				doJob(
 					d_input_jobs,
-					num_input_jobs
+					num_input_jobs,
+					txn
 				);
 				#ifdef WORKER_STATS
 				auto doJob_end = std::chrono::steady_clock::now();
@@ -585,15 +587,30 @@ public:
 		Worker_GPU(
 			int p_device_id,
 			Dictionary* p_dict,
+			Database* p_existing_database
+		)
+		: Worker(
+			p_dict,
+			p_existing_database
+		)
+		{
+			device_id = p_device_id;
+			cerr << "Constructed Worker_GPU on device " << device_id << endl;
+		}
+		Worker_GPU(
+			int p_device_id,
+			Dictionary* p_dict,
 			Job* p_initial_jobs,
 			int64_t p_num_initial_jobs,
-			shared_ptr<vector<Job>> non_sentence_finished_jobs
+			shared_ptr<vector<Job>> non_sentence_finished_jobs,
+			int memory_config = -1
 		)
 		: Worker(
 			p_dict,
 			p_initial_jobs,
 			p_num_initial_jobs,
-			non_sentence_finished_jobs
+			non_sentence_finished_jobs,
+			memory_config
 		)
 		{
 			device_id = p_device_id;
@@ -630,6 +647,33 @@ public:
 			// Equate a GPU device to one CPU thread for scheduling purposes
 			return deviceCount();
 		}
+		virtual int64_t getNumJobsToGive() override
+		{	
+			// Only give each GPU 1 job for now, until performance improves
+			return deviceCount();
+		}
+		virtual int64_t spawn(
+			atomic<Worker*>* buffer,
+			Dictionary* dict,
+			Database** existing_database_buffer,
+			int64_t num_existing_databases
+		) override {
+			int num_devices = deviceCount();
+			cerr << "GPU Spawn: " << num_devices << " devices detected" << endl;
+			for (int i = 0; i < num_devices; i++) {
+				std::thread t4([=]{
+					buffer[i].store(new Worker_GPU(
+						i,
+						dict,
+						existing_database_buffer[i]
+					));
+					fprintf(stderr, "Started Worker_GPU on device %d at %p\n", i, buffer[i].load());
+					buffer[i].load()->start();
+				});
+				t4.detach();
+			}
+			return num_devices;
+		}
 		virtual int64_t spawn(
 			atomic<Worker*>* buffer,
 			Dictionary* dict,
@@ -657,7 +701,8 @@ public:
 						dict,
 						device_initial_jobs + jobs_per_device * i,
 						jobs_per_device,
-						non_sentence_finished_jobs
+						non_sentence_finished_jobs,
+						database::gpu_memory_db ? 1 : -1
 					));
 					fprintf(stderr, "Started Worker_GPU on device %d at %p\n", i, buffer[i].load());
 					buffer[i].load()->start();

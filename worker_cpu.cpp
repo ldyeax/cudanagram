@@ -42,6 +42,26 @@ public:
 		}
 	}
 
+	Worker_CPU(
+		int64_t p_thread_id,
+		dictionary::Dictionary* p_dict,
+		database::Database* p_database
+	) : Worker(
+		p_dict,
+		p_database
+	)
+	{
+		thread_id = p_thread_id;
+		{
+			//std::lock_guard<std::mutex> lock(global_print_mutex);
+			fprintf(
+				stderr,
+				"Started CPU Worker with existing database at %p\n",
+				p_database
+			);
+		}
+	}
+
 	virtual void init() override
 	{
 
@@ -97,7 +117,7 @@ public:
 		return 65535L * 1L;
 	}
 
-	virtual void doJobs() override
+	virtual void doJobs(database::Txn* txn) override
 	{
 		num_new_jobs = 0;
 		// Simple example: mark all unfinished jobs as finished
@@ -242,6 +262,90 @@ class WorkerFactory_CPU : public WorkerFactory {
 			}
 			t1.detach();
 			jobs_given += jobs_to_give;
+		}
+		return num_threads;
+	}
+	int64_t spawn(
+		/**
+		 * Worker buffer to write spawned workers into
+		 **/
+		atomic<Worker*>* buffer,
+		/**
+		 * Dictionary to use for workers
+		 **/
+		Dictionary* dict,
+		/**
+		 * Existing databases to use
+		 **/
+		Database** existing_database_buffer,
+		/**
+		 * Number of existing databases available to take
+		 **/
+		int64_t num_existing_databases
+	) override
+	{
+		unsigned int num_threads
+			= std::thread::hardware_concurrency();
+		if (num_threads < 2) {
+			throw;
+		}
+		num_threads-=2;
+
+		{
+			//std::lock_guard<std::mutex> lock(global_print_mutex);
+			cerr << "CPU Worker Factory spawning "
+				<< num_threads << " threads"
+				<< endl;
+		}
+
+		if (max_cpu_threads > 0 && num_threads > max_cpu_threads) {
+			num_threads = (unsigned int) max_cpu_threads;
+			cerr << "Limiting to max_cpu_threads = " << max_cpu_threads << std::endl;
+		}
+		if (num_threads > num_existing_databases) {
+			num_threads = (unsigned int) num_existing_databases;
+			cerr << "Limiting to available existing databases: "
+				<< num_existing_databases << std::endl;
+		}
+
+
+		for (unsigned int i = 0; i < num_existing_databases; i++) {
+			// create as detached thread
+			std::thread t3([i, dict, existing_database_buffer, buffer]() {
+				buffer[i].store(new Worker_CPU(
+					i,
+					dict,
+					existing_database_buffer[i]
+				));
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					fprintf(
+						stderr,
+						"CPU Worker %d created at %p ;;;;;;;\n",
+						i,
+						buffer[i].load()
+					);
+				}
+				buffer[i].load()->start();
+
+				{
+					// sleep
+					//std::this_thread::sleep_for(std::chrono::seconds(1));
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					fprintf(
+						stderr,
+						"Worker %d set buffer at %p\n",
+						i,
+						buffer[i].load()
+					);
+				}
+			});
+			// std::this_thread::sleep_for(std::chrono::seconds(1));
+			{
+				std::lock_guard<std::mutex> lock(global_print_mutex);
+				cerr << "Created thread for worker " << i << endl;
+			}
+			t3.detach();
 		}
 		return num_threads;
 	}

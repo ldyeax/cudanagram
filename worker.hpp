@@ -13,7 +13,7 @@
 
 using job::Job;
 using database::Database;
-using database::Txn;
+using database::TxnContainer;
 using std::vector;
 using dictionary::Dictionary;
 using std::atomic;
@@ -21,6 +21,7 @@ using std::atomic;
 namespace worker {
 	extern int64_t max_cpu_threads;
 	extern int64_t max_gpu_devices;
+	extern bool delay_sentences;
 
 	enum WorkerStatus {
 		uninitialized,
@@ -84,22 +85,24 @@ namespace worker {
 		 *  which will be called right before the loop starts
 		 **/
 		virtual void init() = 0;
-		void getUnfinishedJobsFromDatabase()
+		void getUnfinishedJobsFromDatabase(database::Txn* txn)
 		{
 			num_unfinished_jobs = database->getUnfinishedJobs(
 				getUnfinishedJobsBufferSize(),
-				unfinished_jobs
+				unfinished_jobs,
+				txn
 			);
 		}
-		virtual void doJobs() = 0;
-		virtual void writeNewJobsToDatabase()
+		virtual void doJobs(database::Txn* txn) = 0;
+		virtual void writeNewJobsToDatabase(database::Txn* txn)
 		{
 			// cerr << "Base writeNewJobsToDatabase called with num_new_jobs = "
 			// 	<< num_new_jobs << endl;
 			if (num_new_jobs > 0) {
 				database->writeNewJobs(
 					new_jobs_buffer,
-					num_new_jobs
+					num_new_jobs,
+					txn
 				);
 				num_new_jobs = 0;
 			}
@@ -113,14 +116,13 @@ namespace worker {
 		}
 		void loop()
 		{
-			static int id_ = 0;
-			int id = ++id_;
+			static atomic<int> id_ = 0;
+			int id = id_.fetch_add(1);
 			init();
 			//cerr << "Worker initialized, entering main loop" << endl;
 			worker_status = running;
-			getUnfinishedJobsFromDatabase();
 			string output_file_name = "sentences/_worker_" + std::to_string(id) + "_output.txt";
-			FILE* output_file = fopen(output_file_name.c_str(), "w");
+			FILE* output_file = fopen(output_file_name.c_str(), "a");
 			if (output_file == nullptr) {
 				cerr << "Worker " << id << " failed to open output file " << output_file_name << endl;
 				throw std::runtime_error("Failed to open worker output file");
@@ -133,20 +135,23 @@ namespace worker {
 				_count++;
 				// cerr << "Worker " << id << " starting doJobs with "
 				// 	<< num_unfinished_jobs << " unfinished jobs at generation " << _count << endl;
-
-				doJobs();
-				writeNewJobsToDatabase();
-				{
-					// //std::lock_guard<std::mutex> lock(global_print_mutex);
-					if (_count % (id_ + 1) == id) {
+				database::TxnContainer txn = database->beginTransaction();
+				getUnfinishedJobsFromDatabase(txn);
+				doJobs(txn);
+				writeNewJobsToDatabase(txn);
+				database->commitTransaction(txn);
+				if (!delay_sentences){
+					// //std::lock_guard<std::mutex> lock(global_print_mutex);'
+					/*bool my_turn = (_count % (id_ * 10)) == (id * 10);
+					if (my_turn) {
 						if (id == 1) {
 							cerr << "Worker " << id << "writing sentences" << endl;
-						}
+						}*/
 						database->printFoundSentences(dictionary, output_file);
 						fflush(output_file);
-					}
-				}
-				getUnfinishedJobsFromDatabase();
+						/*
+					}*/
+				} else { cerr << "delay sentences" << endl; }
 				#ifdef WORKER_STATS
 				run_stats.end_time = std::chrono::steady_clock::now();
 				#endif
@@ -170,6 +175,54 @@ namespace worker {
 		}
 		Worker(
 			Dictionary* dict,
+			Database* p_existing_database
+		)
+		{
+			try {
+				if (p_existing_database == nullptr) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "Existing database null in Worker constructor" << endl;
+					}
+					throw;
+				}
+				if (dict == nullptr) {
+					{
+						//std::lock_guard<std::mutex> lock(global_print_mutex);
+						cerr << "Dictionary is null in Worker constructor" << endl;
+					}
+					throw;
+				}
+				database = p_existing_database;
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					database_name = (char*)database->db_name.c_str();
+					//cerr << "Worker database name: " << database_name << endl;
+				}
+				database->setJobIDIncrementStart(0x7FFFFFFF);
+				dictionary = dict;
+				unfinished_jobs = new Job[getUnfinishedJobsBufferSize()];
+				new_jobs_buffer = new Job[getNewJobsBufferSize()];
+			}
+			catch (std::exception& e) {
+				failed = true;
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Worker caught exception in constructor: " << e.what() << std::endl;
+				}
+				throw e;
+			}
+			catch (...) {
+				failed = true;
+				{
+					//std::lock_guard<std::mutex> lock(global_print_mutex);
+					cerr << "Worker caught unknown exception in constructor" << std::endl;
+				}
+				std::rethrow_exception(std::current_exception());
+			}
+		}
+		Worker(
+			Dictionary* dict,
 			/**
 			 * Buffer to copy initial jobs from
 			 **/
@@ -178,7 +231,8 @@ namespace worker {
 			 * Number of jobs that will be copied from buffer
 			 **/
 			int64_t p_num_initial_jobs,
-			shared_ptr<vector<Job>> non_sentence_finished_jobs
+			shared_ptr<vector<Job>> non_sentence_finished_jobs,
+			int memory_config = -1
 		)
 		{
 			try {
@@ -208,8 +262,15 @@ namespace worker {
 				// 	//std::lock_guard<std::mutex> lock(global_print_mutex);
 				// 	cerr << "Initial jobs is valid in Worker constructor" << endl;
 				// }
-
-				database = new Database();
+				if (memory_config == 1) {
+					database = new Database(true);
+				}
+				else if (memory_config == 0) {
+					database = new Database(false);
+				}
+				else {
+					database = new Database();
+				}
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
 					database_name = (char*)database->db_name.c_str();
@@ -321,6 +382,14 @@ namespace worker {
 		 **/
 		virtual int64_t getTotalThreads() = 0;
 		/**
+		 * If not -1, will be used in the calculation with pirority
+		 *  over getTotalTheads()
+		 **/
+		virtual int64_t getNumJobsToGive()
+		{
+			return -1;
+		}
+		/**
 		 * Returns number of workers spawned
 		 **/
 		virtual int64_t spawn(
@@ -332,6 +401,12 @@ namespace worker {
 			Job* initial_jobs,
 			int64_t num_initial_jobs,
 			shared_ptr<vector<Job>> non_sentence_finished_jobs
+		) = 0;
+		virtual int64_t spawn(
+			atomic<Worker*>* buffer,
+			Dictionary* dict,
+			Database** existing_database_buffer,
+			int64_t to_give
 		) = 0;
 	};
 	extern WorkerFactory* getWorkerFactory_CPU();

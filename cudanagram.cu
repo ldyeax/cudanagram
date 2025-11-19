@@ -27,6 +27,7 @@ using std::string;
 
 int64_t worker::max_cpu_threads = -1;
 int64_t worker::max_gpu_devices = -1;
+bool worker::delay_sentences = false;
 
 void handler(int sig) {
   void *array[10];
@@ -43,14 +44,18 @@ void handler(int sig) {
 
 int printUsage(int argc, char** argv)
 {
-	cerr << "Usage: " << argv[0] <<
-		" [--input] <input_string> "
-		"[--dictionary <dictionary_file>] "
-		"[--continue <database_name>] "
-		"[--no-cpu] [--no-gpu] "
-		"[--max-cpu-threads <num_threads>] "
-		"[--max-gpu-devices <num_devices>] "
-		"" << std::endl;
+	cerr << "Usage: "
+		<< "\t" << argv[0] << endl
+		<< "\t\t[--input] <input_string>" << endl
+		<< "\t\t[--dictionary <dictionary_file>]" << endl
+		<< "\t\t[--no-cpu]" << endl
+		<< "\t\t[--no-gpu]" << endl
+		<< "\t\t[--max-cpu-threads <num_threads>]" << endl
+		<< "\t\t[--max-gpu-devices <num_devices>]" << endl
+		<< "\t\t[--memory-db] (use memory db for all workers)" << endl
+		<< "\t\t[--gpu-memory-db] (use memory db for gpu workers)" << endl
+		<< "\t\t[--delay-sentences] (delay writing sentences to files)" << endl
+		<< "\t\t[--resume]" << endl;
 	return 1;
 }
 
@@ -65,9 +70,10 @@ int main(int argc, char** argv)
 	bool use_cpu = true;
 	bool use_gpu = true;
 	string input = "";
-	string continue_db = "";
+	//string continue_db = "";
 	//bool print_dict = false;
 	string dict_filename = "dictionary.txt";
+	bool resume = false;
 	for (int i = 1; i < argc; i++) {
 		string arg(argv[i]);
 		cerr << "Arg " << i << ": " << arg << endl;
@@ -81,10 +87,10 @@ int main(int argc, char** argv)
 		else if (arg == "--no-gpu") {
 			use_gpu = false;
 		}
-		else if (arg == "--continue" && i + 1 < argc) {
-			continue_db = argv[i + 1];
-			i++;
-		}
+		// else if (arg == "--continue" && i + 1 < argc) {
+		// 	continue_db = argv[i + 1];
+		// 	i++;
+		// }
 		// else if (arg == "--print-dict") {
 		// 	print_dict = true;
 		// }
@@ -104,8 +110,20 @@ int main(int argc, char** argv)
 				<< worker::max_gpu_devices << endl;
 			i++;
 		}
+		else if (arg == "--memory-db") {
+			database::use_memory_db = true;
+		}
+		else if (arg == "--gpu-memory-db") {
+			database::gpu_memory_db = true;
+		}
+		else if (arg == "--delay-sentences") {
+			worker::delay_sentences = true;
+		}
 		else if (input == "") {
 			input = arg;
+		}
+		else if (arg == "--resume") {
+			resume = true;
 		}
 		else {
 			return printUsage(argc, argv);
@@ -115,7 +133,8 @@ int main(int argc, char** argv)
 		input,
 		use_cpu,
 		use_gpu,
-		dict_filename
+		dict_filename,
+		resume
 	);
 
 	return 0;
