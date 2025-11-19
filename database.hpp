@@ -135,6 +135,8 @@ namespace database {
 		int64_t getSentenceJobCountSlow();
 	};
 
+	extern vector<Database*> getExistingDatabases();
+
 
 	// class Database_PSQL : public Database {
 	// 	// PSQL-specific implementations

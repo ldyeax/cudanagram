@@ -1251,4 +1251,25 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 	sqlite3_finalize(stmt);
 	return ret;
 }
-
+#include <filesystem>
+vector<Database*> database::getExistingDatabases()
+{
+	// search filesystem for .db files under ./sqlite/
+	vector<Database*> dbs;
+	string db_dir = "sqlite/";
+	for (const auto& entry : std::filesystem::directory_iterator(db_dir)) {
+		if (entry.is_regular_file()) {
+			string path = entry.path().string();
+			if (path.size() >= 3 && path.substr(path.size() - 3) == ".db") {
+				// found a .db file
+				try {
+					Database* db = new Database(path);
+					dbs.push_back(db);
+				} catch (const std::exception& e) {
+					cerr << "Failed to open database file " << path << ": " << e.what() << endl;
+				}
+			}
+		}
+	}
+	return dbs;
+}

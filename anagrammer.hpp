@@ -59,7 +59,7 @@ namespace anagrammer {
 			}
 
 			if (!resume) {
-				initial_jobs = dict->createInitialJobs(
+				auto initial_jobs = dict->createInitialJobs(
 					total_threads
 				);
 
@@ -186,7 +186,7 @@ namespace anagrammer {
 						break;
 					}
 					num_workers += f->spawn(
-						workers_ptr + num_workers,
+						workers.load() + num_workers,
 						dict,
 						existing_databases.data() + num_workers, 
 						db_to_give

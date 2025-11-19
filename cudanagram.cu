@@ -122,6 +122,9 @@ int main(int argc, char** argv)
 		else if (input == "") {
 			input = arg;
 		}
+		else if (arg == "--resume") {
+			resume = true;
+		}
 		else {
 			return printUsage(argc, argv);
 		}

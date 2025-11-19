@@ -655,6 +655,28 @@ public:
 		virtual int64_t spawn(
 			atomic<Worker*>* buffer,
 			Dictionary* dict,
+			Database** existing_database_buffer,
+			int64_t num_existing_databases
+		) override {
+			int num_devices = deviceCount();
+			cerr << "GPU Spawn: " << num_devices << " devices detected" << endl;
+			for (int i = 0; i < num_devices; i++) {
+				std::thread t4([=]{
+					buffer[i].store(new Worker_GPU(
+						i,
+						dict,
+						existing_database_buffer[i]
+					));
+					fprintf(stderr, "Started Worker_GPU on device %d at %p\n", i, buffer[i].load());
+					buffer[i].load()->start();
+				});
+				t4.detach();
+			}
+			return num_devices;
+		}
+		virtual int64_t spawn(
+			atomic<Worker*>* buffer,
+			Dictionary* dict,
 			Job* initial_jobs,
 			int64_t num_initial_jobs,
 			shared_ptr<vector<Job>> non_sentence_finished_jobs

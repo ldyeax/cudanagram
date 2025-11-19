@@ -403,7 +403,7 @@ namespace worker {
 			shared_ptr<vector<Job>> non_sentence_finished_jobs
 		) = 0;
 		virtual int64_t spawn(
-			atomic<Worker*> buffer,
+			atomic<Worker*>* buffer,
 			Dictionary* dict,
 			Database** existing_database_buffer,
 			int64_t to_give
