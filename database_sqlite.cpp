@@ -163,6 +163,18 @@ struct database::Txn {
 	}
 };
 
+void Database::checkTxn(Txn* txn) {
+	if (txn->db != impl->db) {
+		fprintf(
+			stderr,
+			"Transaction database pointer %p does not match database %p\n",
+			(void*)txn->db,
+			(void*)impl->db
+		);
+		throw std::invalid_argument("Transaction does not belong to this database");
+	}
+}
+
 databaseType_t Database::getDatabaseType()
 {
 	return DB_TYPE_SQLITE;
@@ -191,9 +203,7 @@ TxnContainer Database::beginTransaction()
 void Database::commitTransaction(Txn* txn)
 {
 	//cerr << "commitTransaction called on database " << db_name << endl;
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 	delete txn;
 }
 
@@ -421,9 +431,7 @@ void Database::writeJob(job::Job job) {
 }
 
 void Database::writeJob(job::Job job, Txn* txn) {
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 	writeNewJobs(&job, 1, txn);
 }
 
@@ -449,9 +457,7 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 	if (length <= 0) {
 		throw std::invalid_argument("Invalid length in writeNewJobs");
 	}
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 
@@ -585,9 +591,7 @@ void Database::insertJobsWithIDs(job::Job* jobs, int64_t length, Txn* txn) {
 	if (length <= 0) {
 		throw std::invalid_argument("Invalid length in insertJobsWithIDs(jobs, length, txn)");
 	}
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 
@@ -717,9 +721,7 @@ void Database::finishJobs(job::Job* jobs, int64_t length, Txn* txn) {
     if (length <= 0) {
 		return;
 	}
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 
@@ -761,9 +763,7 @@ void Database::printFoundSentence(
 )
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 	if (impl->parent != nullptr) {
 		throw std::invalid_argument("printFoundSentence should be called on the parent database");
 	}
@@ -1069,9 +1069,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, job::Job* buffer, Txn* txn)
 	if (length <= 0) {
 		throw std::invalid_argument("Invalid length in getUnfinishedJobs");
 	}
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 
 	string select_query =
 		"UPDATE job "
@@ -1164,9 +1162,7 @@ int64_t Database::getUnfinishedJobs(int64_t length, vector<Job>* buffer, Txn* tx
 	if (length <= 0) {
 		throw std::invalid_argument("Invalid length in getUnfinishedJobs");
 	}
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 
 	// SQLite doesn't support UPDATE...RETURNING directly like PostgreSQL
 	// We need to do it in two steps: SELECT then UPDATE
@@ -1234,9 +1230,7 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 	if (id < 1) {
 		throw std::invalid_argument("invalid id: " + std::to_string(id));
 	}
-	if (txn->db != impl->db) {
-		throw std::invalid_argument("Transaction does not belong to this database");
-	}
+checkTxn(txn);
 
 	const char* select_sql =
 		"SELECT job_id, parent_job_id, frequency_map, start, finished "

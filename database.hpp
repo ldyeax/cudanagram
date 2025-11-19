@@ -81,6 +81,7 @@ namespace database {
 		TxnContainer beginTransaction();
 		virtual void commitTransaction(Txn* txn) override;
 		void close();
+		void checkTxn(Txn* txn);
 		~Database();
 		Database(bool memory);
 		Database();
