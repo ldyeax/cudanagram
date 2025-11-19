@@ -147,6 +147,10 @@ $(TARGET): $(SRC) $(AVX_O) $(DB_O) $(WORKER_CPU_O) $(DICTIONARY_O) $(WORKER_GPU_
 		$(SRC) \
 		$(LDFLAGS)
 
+debug: GPP_FLAGS = $(GPP_DEBUG_FLAGS)
+debug: NVCC_CFLAGS = $(GPP_DEBUG_FLAGS)
+debug: $(TARGET)
+
 worker_gpu_test:
 	$(GPP) $(GPP_FLAGS) -c $(AVX_SRC)
 	$(GPP) $(GPP_FLAGS) -c $(DB_SRC)
