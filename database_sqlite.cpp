@@ -475,8 +475,9 @@ void Database::writeNewJobs(job::Job* jobs, int64_t length, Txn* txn)
 	for (int64_t i = 0; i < length; i++) {
 		Job& j = jobs[i];
 		#ifdef TEST_DB
-		// cerr << "Database " << impl->id << ": Writing job to database: " << endl;
-		// j.print();
+		cerr << "Writing job.." << endl;
+		cerr << "Database " << impl->id << ": Writing job to database: " << endl;
+		j.print();
 		#endif
 
 		#ifdef TEST_DB
