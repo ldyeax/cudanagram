@@ -204,8 +204,8 @@ TxnContainer Database::beginTransaction()
 void Database::commitTransaction(Txn* txn)
 {
 	//cerr << "commitTransaction called on database " << db_name << endl;
-checkTxn(txn);
-	delete txn;
+	checkTxn(txn);
+	txn->commit();  // Just commit, don't delete - let TxnContainer handle deletion
 }
 
 void Database::close()
