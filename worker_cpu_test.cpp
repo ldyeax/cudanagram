@@ -60,6 +60,8 @@ int main(int argc, char* argv[])
 
 	cerr << "Worker CPU Test" << endl;
 
+	cerr << "sizeof(Job) = " << (int64_t)(sizeof(Job)) << endl;
+
 	string dummy;
 	string input = "HELLOWORLD";
 	//string input = "twomilkmengocomedy";

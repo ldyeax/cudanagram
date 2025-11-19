@@ -23,7 +23,7 @@ LSQLITE3 = -lsqlite3
 
 NVCC = nvcc
 #NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Wno-unused-result
-NVCC_CFLAGS = -ccbin g++-11 --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Xcompiler -Wno-unused-result
+NVCC_CFLAGS = -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O3 -O3 -use_fast_math -Xcompiler -Wno-unused-result
 #LDFLAGS = -ltinfo -L$(PQXX_LIB) -lpq -lpqxx -lsqlite3
 LDFLAGS = -ltinfo  -lsqlite3
 

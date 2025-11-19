@@ -1,0 +1,68 @@
+The system supports approximately 120 CPU threads.
+Spawned 120 CPU workers
+Number of CUDA-enabled GPUs: 2
+Spawned 2 GPU workers
+Anagrammer::initWorkers: total available threads = 524408
+Anagrammer iteration 1
+Jobs stats: total_jobs=1, unfinished_jobs=1
+Found 1 jobs, of which 1 are unfinished
+Jobs stats: total_jobs=1, unfinished_jobs=0
+Unfinished jobs remaining: 1
+ Took 1 jobs
+ Jobs/second processed+write: 31.25
+Anagrammer iteration 2
+Jobs stats: total_jobs=1174, unfinished_jobs=1173
+Found 1174 jobs, of which 1173 are unfinished
+Jobs stats: total_jobs=1174, unfinished_jobs=0
+Unfinished jobs remaining: 1173
+ Took 1173 jobs
+ Jobs/second processed+write: 3480.71
+Anagrammer iteration 3
+Jobs stats: total_jobs=114332, unfinished_jobs=113158
+Found 114332 jobs, of which 113158 are unfinished
+Jobs stats: total_jobs=114332, unfinished_jobs=0
+Unfinished jobs remaining: 113158
+ Took 113158 jobs
+ Jobs/second processed+write: 22398.65
+Anagrammer iteration 4
+Jobs stats: total_jobs=1873873, unfinished_jobs=1759541
+Found 1873873 jobs, of which 1759541 are unfinished
+Jobs stats: total_jobs=1873873, unfinished_jobs=0
+Unfinished jobs remaining: 1759541
+ Took 1759541 jobs
+ Jobs/second processed+write: 99837.78
+Anagrammer iteration 5
+Jobs stats: total_jobs=7077348, unfinished_jobs=5203466
+Found 7077348 jobs, of which 5203466 are unfinished
+Jobs stats: total_jobs=7077348, unfinished_jobs=0
+Unfinished jobs remaining: 5203466
+ Took 5203466 jobs
+ Jobs/second processed+write: 192421.64
+Anagrammer iteration 6
+Jobs stats: total_jobs=10026201, unfinished_jobs=2948824
+Found 10026201 jobs, of which 2948824 are unfinished
+Jobs stats: total_jobs=10026201, unfinished_jobs=0
+Unfinished jobs remaining: 2948824
+ Took 2948824 jobs
+ Jobs/second processed+write: 206153.80
+Anagrammer iteration 7
+Jobs stats: total_jobs=10331616, unfinished_jobs=305411
+Found 10331616 jobs, of which 305411 are unfinished
+Jobs stats: total_jobs=10331616, unfinished_jobs=0
+Unfinished jobs remaining: 305411
+ Took 305411 jobs
+ Jobs/second processed+write: 353076.30
+Anagrammer iteration 8
+Jobs stats: total_jobs=10336302, unfinished_jobs=4686
+Found 10336302 jobs, of which 4686 are unfinished
+Jobs stats: total_jobs=10336302, unfinished_jobs=0
+Unfinished jobs remaining: 4686
+ Took 4686 jobs
+ Jobs/second processed+write: 18971.66
+Anagrammer iteration 9
+Jobs stats: total_jobs=10336302, unfinished_jobs=0
+Found 10336302 jobs, of which 0 are unfinished
+Jobs stats: total_jobs=10336302, unfinished_jobs=0
+No unfinished jobs remaining, done.
+Printed 189351 found sentences
+
