@@ -231,7 +231,7 @@ class WorkerFactory_CPU : public WorkerFactory {
 					thread_initial_jobs,
 					jobs_to_give,
 					non_sentence_finished_jobs
-				));
+				), std::memory_order_release);
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
 					fprintf(

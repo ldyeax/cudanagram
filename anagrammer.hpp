@@ -202,14 +202,14 @@ namespace anagrammer {
 			bool all_initialized = false;
 			while (!all_initialized) {
 				for (int64_t i = 0; i < num_workers; i++) {
-					if (workers[i].load() == nullptr) {
+					if (workers[i].load(std::memory_order_acquire) == nullptr) {
 						{
 							//std::lock_guard<std::mutex> lock(global_print_mutex);
 							cerr << "Worker " << i << " at " << &workers[i] << " is null.." << endl;
 						}
 						goto still_uninitialized;
 					}
-					if (workers[i].load()->worker_status == worker::uninitialized) {
+					if (workers[i].load(std::memory_order_acquire)->worker_status == worker::uninitialized) {
 						goto still_uninitialized;
 					}
 				}
