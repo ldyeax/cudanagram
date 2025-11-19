@@ -124,6 +124,7 @@ int main(int argc, char** argv)
 		}
 		else if (arg == "--resume") {
 			resume = true;
+			cerr << "Set resume to " << resume << endl;
 		}
 		else {
 			return printUsage(argc, argv);
