@@ -30,6 +30,7 @@ namespace job {
 			fprintf(stderr, "Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
 			frequency_map.print();
 			fprintf(stderr, " start=%d finished=%d is_sentence=%d\n", start, finished, is_sentence);
+			fflush(stderr);
 		}
 
 		__device__ void d_print()
