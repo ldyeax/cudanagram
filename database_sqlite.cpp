@@ -227,6 +227,7 @@ Database::~Database()
 
 Database::Database(std::string existing_db_name)
 {
+throw;
 #ifdef TEST_DB
 	cerr << "Constructing Database object with existing db name: " << existing_db_name << endl;
 #endif
@@ -253,7 +254,16 @@ const char* sqlite_db_pragmas =
 ;
 void Database::create_db()
 {
+	if (impl->db != nullptr) {
+		fprintf(
+			stderr,
+			"Database %s already has an open connection, cannot create new database\n",
+			db_name.c_str()
+		);
+		throw std::runtime_error("Database already created or connected");
+	}
 	if (impl->parent != nullptr) {
+		throw;
 		db_name = string(impl->parent->db_name) + string(".child.") + std::to_string(impl->id) + string(".db");
 	}
 	else {
