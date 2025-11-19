@@ -207,15 +207,14 @@ Database::~Database()
 
 Database::Database(std::string existing_db_name)
 {
-	throw;
 #ifdef TEST_DB
 	cerr << "Constructing Database object with existing db name: " << existing_db_name << endl;
 #endif
 	db_name = existing_db_name;
 	init();
 	connect();
-#ifdef TEST_DB
 	cerr << "Connected to existing db" << endl;
+#ifdef TEST_DB
 #endif
 }
 
@@ -1257,12 +1256,17 @@ vector<Database*> database::getExistingDatabases()
 	// search filesystem for .db files under ./sqlite/
 	vector<Database*> dbs;
 	string db_dir = "sqlite/";
+	cerr << "Searching for database files in directory: " << db_dir << endl;
 	for (const auto& entry : std::filesystem::directory_iterator(db_dir)) {
+		cerr << "Checking file: " << entry.path().string() << endl;
 		if (entry.is_regular_file()) {
+			cerr << "Got regular file: " << entry.path().string() << endl;
 			string path = entry.path().string();
 			if (path.size() >= 3 && path.substr(path.size() - 3) == ".db") {
+				cerr << "Got .db file: " << path << endl;
 				// found a .db file
 				try {
+					cerr << "Constructing database:" << path << endl;
 					Database* db = new Database(path);
 					dbs.push_back(db);
 				} catch (const std::exception& e) {
