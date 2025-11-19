@@ -50,7 +50,9 @@ FM_O = frequency_map.o
 DICTIONARY_O = dictionary.o
 
 #GPP_DEBUG_FLAGS = -g -O0 -march=native -mavx2 -mfma -std=c++17 -I$(PQXX_INC) -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
-GPP_DEBUG_FLAGS = -g -O0 -march=native -mavx2 -mfma -std=c++17 -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
+GPP_DEBUG_FLAGS = -g -O0 -rdynamic -march=native -mavx2 -mfma -std=c++17 -Wno-write-strings -Wno-deprecated-declarations -Wno-unused-result
+#NVCC_DEBUG_FLAGS = -g -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -I$(PQXX_INC) -Xcompiler -Wno-write-strings -Xcompiler -O0 -Wno-unused-result
+NVCC_DEBUG_FLAGS = -g -ccbin g++ --expt-relaxed-constexpr -arch=sm_86 -std=c++17 -Xcompiler -Wno-write-strings -Xcompiler -O0 -Xcompiler -Wno-unused-result
 
 ifdef TEST_WORKER_GPU
 	GPP_FLAGS  += -DTEST_WORKER_GPU
@@ -148,7 +150,7 @@ $(TARGET): $(SRC) $(AVX_O) $(DB_O) $(WORKER_CPU_O) $(DICTIONARY_O) $(WORKER_GPU_
 		$(LDFLAGS)
 
 debug: GPP_FLAGS = $(GPP_DEBUG_FLAGS)
-debug: NVCC_CFLAGS = $(GPP_DEBUG_FLAGS)
+debug: NVCC_CFLAGS = $(NVCC_DEBUG_FLAGS)
 debug: $(TARGET)
 
 worker_gpu_test:
