@@ -90,17 +90,17 @@ def main():
 		if not line:
 			sys.stderr.write("Skipping empty line\n")
 			continue
-		l2 = line.split(' ')
-		if len(l2) != 9:
-			sys.stderr.write("Skipping line without 9 words: {}\n".format(line))
-			continue
-		if 'THE' not in l2:
-			sys.stderr.write("Skipping line without THE: {}\n".format(line))
-			continue
+		#l2 = line.split(' ')
+		#if len(l2) != 9:
+		#	sys.stderr.write("Skipping line without 9 words: {}\n".format(line))
+		#	continue
+		#if 'THE' not in l2:
+		#	sys.stderr.write("Skipping line without THE: {}\n".format(line))
+		#	continue
 		# put THE first
-		l2.remove('THE')
-		l2.insert(0, 'THE')
-		line = " ".join(l2)
+		#l2.remove('THE')
+		#l2.insert(0, 'THE')
+		#line = " ".join(l2)
 
 		words = line.split()
 		best = beam_search_order(words, beam_size)

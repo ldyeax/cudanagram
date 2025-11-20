@@ -269,6 +269,7 @@ void dictionary::Dictionary::printSentence(
 			word_index_lists_for_frequency_maps[index].begin()
 		);
 	}
+	/*
 	while (true) {
 		// print current words
 		for (int32_t i = 0; i < iterators.size(); i++) {
@@ -302,6 +303,47 @@ void dictionary::Dictionary::printSentence(
 			}
 		}
 		// if no iterators advanced (ie we are done), break
+		if (carry == 1) {
+			break;
+		}
+	}*/
+	// print all permutations
+	vector<int32_t> positions(iterators.size(), 0);
+	while (true) {
+		// print current words
+		for (int32_t i = 0; i < iterators.size(); i++) {
+			if (i > 0) {
+				fprintf(
+					output_file,
+					" "
+				);
+			}
+			fprintf(
+				output_file,
+				"%s",
+				words[
+					word_index_lists_for_frequency_maps[indices[i]][positions[i]]
+				].c_str()
+			);
+		}
+		fprintf(output_file, "\n");
+		// increment positions
+		int32_t carry = 1;
+		for (int32_t i = positions.size() - 1; i >= 0; i--) {
+			if (carry == 0) {
+				break;
+			}
+			carry = 0;
+			positions[i]++;
+			if (positions[i] == word_index_lists_for_frequency_maps[indices[i]].size()) {
+				if (i == 0) {
+					return;
+				}
+				positions[i] = 0;
+				carry = 1;
+			}
+		}
+		// if no positions advanced (ie we are done), break
 		if (carry == 1) {
 			break;
 		}
