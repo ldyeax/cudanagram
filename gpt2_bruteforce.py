@@ -93,6 +93,12 @@ def main():
         line = line.strip()
         if not line:
             continue
+		if 'THE' not in line:
+			continue
+		l2 = line.split(' ')
+		if len(l2) != 9:
+			continue
+
 
         words = line.split()
         best = best_order_bruteforce(words)
