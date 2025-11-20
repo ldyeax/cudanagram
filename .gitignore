@@ -1,2 +1,22 @@
-# Created by venv; see https://docs.python.org/3/library/venv.html
-*
+.vscode
+sentences/**
+external/**
+sqlite/**
+cudanagram
+trace
+database_test
+dictionary_test
+test_avx
+worker_cpu_test
+perf.*
+*.o
+*.i
+*.ii
+*.gpu
+*.ptx
+*.cubin
+*.fatbin
+*.db
+*.db-wal
+*.db-shm
+*.log
