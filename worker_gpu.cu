@@ -593,7 +593,6 @@ public:
 		: Worker(
 			p_dict,
 			p_existing_database,
-			-1,
 			max_depth
 		)
 		{
@@ -661,7 +660,8 @@ public:
 			atomic<Worker*>* buffer,
 			Dictionary* dict,
 			Database** existing_database_buffer,
-			int64_t num_existing_databases
+			int64_t num_existing_databases,
+			int8_t max_depth
 		) override {
 			int num_devices = deviceCount();
 			cerr << "GPU Spawn: " << num_devices << " devices detected" << endl;
@@ -670,7 +670,8 @@ public:
 					buffer[i].store(new Worker_GPU(
 						i,
 						dict,
-						existing_database_buffer[i]
+						existing_database_buffer[i],
+						max_depth
 					));
 					fprintf(stderr, "Started Worker_GPU on device %d at %p\n", i, buffer[i].load());
 					buffer[i].load()->start();
@@ -684,7 +685,8 @@ public:
 			Dictionary* dict,
 			Job* initial_jobs,
 			int64_t num_initial_jobs,
-			shared_ptr<vector<Job>> non_sentence_finished_jobs
+			shared_ptr<vector<Job>> non_sentence_finished_jobs,
+			int8_t max_depth
 		) override {
 			int num_devices = deviceCount();
 			cerr << "GPU Spawn: " << num_devices << " devices detected" << endl;
@@ -707,7 +709,8 @@ public:
 						device_initial_jobs + jobs_per_device * i,
 						jobs_per_device,
 						non_sentence_finished_jobs,
-						database::gpu_memory_db ? 1 : -1
+						database::gpu_memory_db ? 1 : -1,
+						max_depth
 					));
 					fprintf(stderr, "Started Worker_GPU on device %d at %p\n", i, buffer[i].load());
 					buffer[i].load()->start();
