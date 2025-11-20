@@ -38,7 +38,8 @@ namespace anagrammer {
 		void spawnWorkers(
 			bool use_cpu,
 			bool use_gpu,
-			bool resume
+			bool resume,
+			int8_t max_depth
 		)
 		{
 			//workers = new atomic<Worker*>[1024];
@@ -64,7 +65,8 @@ namespace anagrammer {
 			dictionary::InitialJobsCreation initial_jobs;
 			if (!resume) {
 				initial_jobs = dict->createInitialJobs(
-					total_threads
+					total_threads,
+					max_depth
 				);
 
 				if (initial_jobs.unfinished_jobs == nullptr) {
@@ -161,7 +163,8 @@ namespace anagrammer {
 						dict,
 						initial_jobs_buffer,
 						num_jobs_for_factory,
-						initial_jobs.non_sentence_finished_jobs
+						initial_jobs.non_sentence_finished_jobs,
+						max_depth
 					);
 					initial_jobs_buffer += num_jobs_for_factory;
 				}
@@ -215,7 +218,8 @@ namespace anagrammer {
 						&workers[num_workers],
 						dict,
 						existing_databases.data() + num_workers,
-						db_to_give
+						db_to_give,
+						max_depth
 					);
 				}
 
@@ -255,7 +259,8 @@ still_uninitialized:
 			bool use_cpu = true,
 			bool use_gpu = true,
 			string dictionary_filename = "dictionary.txt",
-			bool resume = false
+			bool resume = false,
+			int8_t max_depth = -1
 		)
 		{
 			if (!use_cpu && !use_gpu) {
@@ -274,7 +279,7 @@ still_uninitialized:
 				0
 			);
 			input = p_input;
-			spawnWorkers(use_cpu, use_gpu, resume);
+			spawnWorkers(use_cpu, use_gpu, resume, max_depth);
 
 			bool all_finished = true;
 			do {

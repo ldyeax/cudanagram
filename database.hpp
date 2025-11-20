@@ -128,12 +128,13 @@ namespace database {
 			Dictionary* dict,
 			shared_ptr<vector<FrequencyMapIndex_t>> indices,
 			Txn* txn,
-			FILE* output_file
+			FILE* output_file,
+			int8_t max_depth
 		);
-		void printFoundSentences(Dictionary* dict, FILE* output_file);
+		void printFoundSentences(Dictionary* dict, FILE* output_file, int8_t max_depth);
 		void setJobIDIncrementStart(int64_t start);
-		void getFoundSentenceJobs(vector<Job>& out_jobs);
-		void getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn);
+		void getFoundSentenceJobs(vector<Job>& out_jobs, int8_t max_depth);
+		void getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn, int8_t max_depth);
 		int64_t getSentenceJobCountSlow();
 	};
 

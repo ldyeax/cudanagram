@@ -65,7 +65,8 @@ namespace dictionary {
 
 		//shared_ptr<vector<Job>> createInitialjobs(int64_t count);
 		InitialJobsCreation createInitialJobs(
-			int64_t count
+			int64_t count,
+			int8_t max_depth
 		);
 
 		FrequencyMapIndex_t getOrCreateFrequencyMapIndexByWordIndex(

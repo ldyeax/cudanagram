@@ -23,12 +23,15 @@ public:
 		dictionary::Dictionary* p_dict,
 		Job* p_initial_jobs,
 		int64_t p_num_initial_jobs,
-		shared_ptr<vector<Job>> non_sentence_finished_jobs
+		shared_ptr<vector<Job>> non_sentence_finished_jobs,
+		int8_t max_depth
 	) : Worker(
 		p_dict,
 		p_initial_jobs,
 		p_num_initial_jobs,
-		non_sentence_finished_jobs
+		non_sentence_finished_jobs,
+		-1,
+		max_depth
 	)
 	{
 		thread_id = p_thread_id;
@@ -45,10 +48,12 @@ public:
 	Worker_CPU(
 		int64_t p_thread_id,
 		dictionary::Dictionary* p_dict,
-		database::Database* p_database
-	) : Worker(
+		database::Database* p_database,
+		int8_t max_depth
+	) : Worker (
 		p_dict,
-		p_database
+		p_database,
+		max_depth
 	)
 	{
 		thread_id = p_thread_id;
@@ -69,8 +74,12 @@ public:
 
 	void doJob(Job& job)
 	{
+		if (max_depth > 0 && job.depth >= max_depth) {
+			return;
+		}
 		for (FrequencyMapIndex_t i = job.start; i < dictionary->frequency_maps_length; i++) {
 			job::Job tmp = {};
+			tmp.depth = job.depth + 1;
 			#ifdef DEBUG_WORKER_CPU
 			cerr << "Worker_CPU doing job "
 				<< job.job_id << " comparing with frequency map index " << i << endl;
@@ -83,10 +92,21 @@ public:
 					i,
 					&tmp.frequency_map
 				);
-			Job tmp2;
+
 			switch (res) {
 			case COMPLETE_MATCH:
+				if (max_depth > 0 && tmp.depth != max_depth) {
+					// cerr << "Skipping COMPLETE_MATCH for job "
+					// 	<< job.job_id << " at frequency map index " << i
+					// 	<< " due to max_depth=" << (int)max_depth
+					// 	<< " job.depth = " << (int)job.depth <<
+					// 	endl;
+					break;
+				}
+				// cerr << "Worker_CPU COMPLETE_MATCH for job "
+				// 	<< job.job_id << " at frequency map index " << i << endl;
 			#ifdef DEBUG_WORKER_CPU
+				Job tmp2;
 				cerr << "Found complete match for job "
 					<< job.job_id << " at frequency map index " << i << endl;
 				dict_fm->print();
@@ -102,6 +122,12 @@ public:
 				tmp.finished = true;
 				tmp.is_sentence = true;
 			case INCOMPLETE_MATCH:
+				// cerr << "Worker_CPU adding new job from job "
+				// 	<< job.job_id << " at frequency map index " << i
+				// 	<< " with result "
+				// 	<< (res == INCOMPLETE_MATCH ? "INCOMPLETE_MATCH" : "COMPLETE_MATCH")
+				// 	<< " and depth " << (int)tmp.depth
+				// 	<< endl;
 				tmp.parent_job_id = job.job_id;
 				tmp.start = i;
 				new_jobs_buffer[num_new_jobs++] = tmp;
@@ -177,7 +203,8 @@ class WorkerFactory_CPU : public WorkerFactory {
 		 * Number of initial unfinished jobs to copy from
 		 **/
 		int64_t num_initial_jobs,
-		shared_ptr<vector<Job>> non_sentence_finished_jobs
+		shared_ptr<vector<Job>> non_sentence_finished_jobs,
+		int8_t max_depth
 	) override
 	{
 		unsigned int num_threads
@@ -219,7 +246,7 @@ class WorkerFactory_CPU : public WorkerFactory {
 			}
 			Job* thread_initial_jobs = initial_jobs + jobs_given;
 			// create as detached thread
-			std::thread t1([i, jobs_to_give, thread_initial_jobs, dict, non_sentence_finished_jobs, buffer]() {
+			std::thread t1([i, jobs_to_give, thread_initial_jobs, dict, non_sentence_finished_jobs, buffer, max_depth]() {
 				cerr << "Thread got jobs to give: " << jobs_to_give << endl;
 				if (jobs_to_give <= 0) {
 					cerr << "This should be impossible " << jobs_to_give << endl;
@@ -230,7 +257,8 @@ class WorkerFactory_CPU : public WorkerFactory {
 					dict,
 					thread_initial_jobs,
 					jobs_to_give,
-					non_sentence_finished_jobs
+					non_sentence_finished_jobs,
+					max_depth
 				), std::memory_order_release);
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
@@ -282,7 +310,8 @@ class WorkerFactory_CPU : public WorkerFactory {
 		/**
 		 * Number of existing databases available to take
 		 **/
-		int64_t num_existing_databases
+		int64_t num_existing_databases,
+		int8_t max_depth
 	) override
 	{
 		unsigned int num_threads
@@ -312,12 +341,13 @@ class WorkerFactory_CPU : public WorkerFactory {
 
 		for (unsigned int i = 0; i < num_existing_databases; i++) {
 			// create as detached thread
-			std::thread t3([i, dict, existing_database_buffer, buffer]() {
+			std::thread t3([i, dict, existing_database_buffer, buffer, max_depth]() {
 				buffer[i].store(new Worker_CPU(
 					i,
 					dict,
-					existing_database_buffer[i]
-				));
+					existing_database_buffer[i],
+					max_depth
+				), std::memory_order_release);
 				{
 					//std::lock_guard<std::mutex> lock(global_print_mutex);
 					fprintf(

@@ -308,8 +308,15 @@ void dictionary::Dictionary::printSentence(
 	}
 }
 
-int64_t processJob(Dictionary* dict, int64_t index, shared_ptr<vector<Job>> existing_jobs)
+/**
+ * Returns the number of new jobs created
+ **/
+int64_t processJob(Dictionary* dict, int64_t index, shared_ptr<vector<Job>> existing_jobs, int8_t max_depth)
 {
+	if (max_depth > 0 && existing_jobs->at(index).depth >= max_depth) {
+		existing_jobs->at(index).finished = true;
+		return 0;
+	}
 	job::Job tmp_job = {};
 	tmp_job.parent_job_id = existing_jobs->at(index).job_id;
 	FrequencyMapIndex_t start = existing_jobs->at(index).start;
@@ -330,15 +337,20 @@ int64_t processJob(Dictionary* dict, int64_t index, shared_ptr<vector<Job>> exis
 			tmp_job.start = i;
 			tmp_job.is_sentence = false;
 			tmp_job.finished = false;
+			tmp_job.depth = existing_jobs->at(index).depth + 1;
 			existing_jobs->push_back(tmp_job);
 			ret++;
 		}
 		else if (result == COMPLETE_MATCH) {
+			if (max_depth > 0 && existing_jobs->at(index).depth + 1 != max_depth) {
+				continue;
+			}
 			//cerr << "COMPLETE_MATCH found in processJob at " << i << endl;
 			tmp_job.job_id = existing_jobs->size() + 1;
 			tmp_job.start = i;
 			tmp_job.is_sentence = true;
 			tmp_job.finished = true;
+			tmp_job.depth = existing_jobs->at(index).depth + 1;
 			existing_jobs->push_back(tmp_job);
 			ret++;
 		}
@@ -386,7 +398,10 @@ void printFoundSentences_initial(
 	}
 }
 
-InitialJobsCreation dictionary::Dictionary::createInitialJobs(int64_t count)
+InitialJobsCreation dictionary::Dictionary::createInitialJobs(
+	int64_t count,
+	int8_t max_depth
+)
 {
 	#ifdef DICTIONARY_DEBUG
 	count = 1;
@@ -425,6 +440,7 @@ InitialJobsCreation dictionary::Dictionary::createInitialJobs(int64_t count)
 	start_job.finished = false;
 	start_job.is_sentence = false;
 	start_job.finished = false;
+	start_job.depth = 0;
 	//cerr << "Start job created with job_id=" << start_job.job_id << endl;
 	if (start_job.frequency_map.isAllZero()) {
 	//	cerr << "createInitialjobs: all-zero frequency map in start job" << endl;
@@ -442,7 +458,7 @@ InitialJobsCreation dictionary::Dictionary::createInitialJobs(int64_t count)
 		for (int32_t i = 0; i < initial_size; i++) {
 			if (!tmp->at(i).finished) {
 				// cerr << "createInitialjobs: processing job " << tmp->at(i).job_id << " unfinished_count=" << unfinished_count << endl;
-				added += processJob(this, i, tmp);
+				added += processJob(this, i, tmp, max_depth);
 			}
 		}
 		if (added == 0) {

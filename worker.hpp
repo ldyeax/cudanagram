@@ -150,7 +150,7 @@ namespace worker {
 						if (id == 1) {
 							cerr << "Worker " << id << "writing sentences" << endl;
 						}*/
-						database->printFoundSentences(dictionary, output_file);
+						database->printFoundSentences(dictionary, output_file, max_depth);
 						fflush(output_file);
 						/*
 					}*/
@@ -162,7 +162,7 @@ namespace worker {
 			} while (!terminated.load() && num_unfinished_jobs > 0);
 
 			if (!terminated.load()) {
-				database->printFoundSentences(dictionary, output_file);
+				database->printFoundSentences(dictionary, output_file, max_depth);
 			}
 			fclose(output_file);
 			cerr << "Worker " << id << " finished all jobs, exiting loop (terminated=" << terminated.load() << ")" << endl;
@@ -180,11 +180,14 @@ namespace worker {
 			cerr << "Worker starting loop()" << endl;
 			loop();
 		}
+		int8_t max_depth = -1;
 		Worker(
 			Dictionary* dict,
-			Database* p_existing_database
+			Database* p_existing_database,
+			int8_t p_max_depth = -1
 		)
 		{
+			max_depth = p_max_depth;
 			try {
 				if (p_existing_database == nullptr) {
 					{
@@ -239,9 +242,11 @@ namespace worker {
 			 **/
 			int64_t p_num_initial_jobs,
 			shared_ptr<vector<Job>> non_sentence_finished_jobs,
-			int memory_config = -1
+			int memory_config = -1,
+			int8_t p_max_depth = -1
 		)
 		{
+			max_depth = p_max_depth;
 			try {
 				if (p_initial_jobs == nullptr) {
 					{
@@ -409,13 +414,15 @@ namespace worker {
 			 **/
 			Job* initial_jobs,
 			int64_t num_initial_jobs,
-			shared_ptr<vector<Job>> non_sentence_finished_jobs
+			shared_ptr<vector<Job>> non_sentence_finished_jobs,
+			int8_t max_depth
 		) = 0;
 		virtual int64_t spawn(
 			atomic<Worker*>* buffer,
 			Dictionary* dict,
 			Database** existing_database_buffer,
-			int64_t to_give
+			int64_t to_give,
+			int8_t max_depth
 		) = 0;
 	};
 	extern WorkerFactory* getWorkerFactory_CPU();

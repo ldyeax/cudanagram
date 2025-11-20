@@ -334,7 +334,8 @@ void Database::create_db()
 		"    frequency_map BLOB NOT NULL CHECK(length(frequency_map) = 26),"
 		"    start INTEGER,"
 		"    finished INTEGER NOT NULL,"
-		"    is_sentence INTEGER NOT NULL"
+		"    is_sentence INTEGER NOT NULL,"
+		"    depth INTEGER NOT NULL"
 		")";
 
 	if (sqlite3_exec(impl->db, create_table_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
@@ -485,8 +486,8 @@ checkTxn(txn);
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 
 	const char* insert_sql =
-		"INSERT INTO job (parent_job_id, frequency_map, start, finished, is_sentence) "
-		"VALUES (?, ?, ?, ?, ?)";
+		"INSERT INTO job (parent_job_id, frequency_map, start, finished, is_sentence, depth) "
+		"VALUES (?, ?, ?, ?, ?, ?)";
 
 	sqlite3_stmt* stmt;
 	int rc = sqlite3_prepare_v2(txn->db, insert_sql, -1, &stmt, nullptr);
@@ -532,6 +533,7 @@ checkTxn(txn);
 		sqlite3_bind_int(stmt, 3, j.start);
 		sqlite3_bind_int(stmt, 4, j.finished ? 1 : 0);
 		sqlite3_bind_int(stmt, 5, j.is_sentence ? 1 : 0);
+		sqlite3_bind_int(stmt, 6, j.depth);
 		#ifdef TEST_DB
 		if (j.is_sentence) {
 			for (int32_t iii = 0; iii < 10; iii++)
@@ -619,8 +621,8 @@ checkTxn(txn);
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 
 	const char* insert_sql =
-		"INSERT INTO job (job_id, parent_job_id, frequency_map, start, finished, is_sentence) "
-		"VALUES (?, ?, ?, ?, ?, ?)";
+		"INSERT INTO job (job_id, parent_job_id, frequency_map, start, finished, is_sentence, depth) "
+		"VALUES (?, ?, ?, ?, ?, ?, ?)";
 
 	sqlite3_stmt* stmt;
 	int rc = sqlite3_prepare_v2(txn->db, insert_sql, -1, &stmt, nullptr);
@@ -685,6 +687,7 @@ checkTxn(txn);
 		sqlite3_bind_int(stmt, 4, j.start);
 		sqlite3_bind_int(stmt, 5, j.finished ? 1 : 0);
 		sqlite3_bind_int(stmt, 6, j.is_sentence ? 1 : 0);
+		sqlite3_bind_int(stmt, 7, j.depth);
 
 		// Execute
 		rc = sqlite3_step(stmt);
@@ -782,7 +785,8 @@ void Database::printFoundSentence(
 	Dictionary* dict,
 	shared_ptr<vector<FrequencyMapIndex_t>> indices,
 	Txn* txn,
-	FILE* output_file
+	FILE* output_file,
+	int8_t max_depth
 )
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
@@ -809,7 +813,8 @@ checkTxn(txn);
 			dict,
 			indices,
 			txn,
-			output_file
+			output_file,
+			max_depth
 		);
 	}
 	else {
@@ -818,20 +823,40 @@ checkTxn(txn);
 	}
 }
 
-void Database::getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn)
+const char* select_sql_nomaxdepth = "UPDATE job SET is_sentence = -1 WHERE is_sentence = 1 RETURNING parent_job_id, start";
+const char* select_sql_maxdepth = "UPDATE job SET is_sentence = -1 WHERE is_sentence = 1 AND depth = ? RETURNING parent_job_id, start";
+
+void Database::getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn, int8_t max_depth)
 {
 	//lockguardtest_lock_guard<std::mutex> lock(impl->mutex);
 	//const char* select_sql = "SELECT parent_job_id, start FROM job WHERE is_sentence = 1";
 
-	const char* select_sql = "UPDATE job SET is_sentence = -1 WHERE is_sentence = 1 RETURNING parent_job_id, start";
-
 	sqlite3_stmt* stmt;
-	int rc = sqlite3_prepare_v2(txn->db, select_sql, -1, &stmt, nullptr);
-	if (rc != SQLITE_OK) {
-		string error = "Failed to prepare select statement: ";
-		error += sqlite3_errmsg(txn->db);
-		throw std::runtime_error(error);
+	int rc;
+
+	if (max_depth <= 0) {
+		const char* select_sql = "UPDATE job SET is_sentence = -1 WHERE is_sentence = 1 RETURNING parent_job_id, start";
+
+		rc = sqlite3_prepare_v2(txn->db, select_sql, -1, &stmt, nullptr);
+		if (rc != SQLITE_OK) {
+			string error = "Failed to prepare select statement: ";
+			error += sqlite3_errmsg(txn->db);
+			throw std::runtime_error(error);
+		}
 	}
+	else {
+		const char* select_sql = "UPDATE job SET is_sentence = -1 WHERE is_sentence = 1 AND depth = ? RETURNING parent_job_id, start";
+
+		rc = sqlite3_prepare_v2(txn->db, select_sql, -1, &stmt, nullptr);
+		if (rc != SQLITE_OK) {
+			string error = "Failed to prepare select statement with max depth: ";
+			error += sqlite3_errmsg(txn->db);
+			throw std::runtime_error(error);
+		}
+
+		sqlite3_bind_int(stmt, 1, max_depth);
+	}
+
 
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
 		JobID_t parent_id = sqlite3_column_int64(stmt, 0);
@@ -852,15 +877,15 @@ void Database::getFoundSentenceJobs(vector<Job>& out_jobs, Txn* txn)
 
 	sqlite3_finalize(stmt);
 }
-void Database::getFoundSentenceJobs(vector<Job>& out_jobs)
+void Database::getFoundSentenceJobs(vector<Job>& out_jobs, int8_t max_depth)
 {
 	//cerr << "database " << db_name << " getting found sentence jobs" << endl;
 	TxnContainer txn = beginTransaction();
 	//cerr << "database " << db_name << " began transaction for getting found sentence jobs" << endl;
-	getFoundSentenceJobs(out_jobs, txn.txn);
+	getFoundSentenceJobs(out_jobs, txn.txn, max_depth);
 }
 
-void Database::printFoundSentences(Dictionary* dict, FILE* output_file)
+void Database::printFoundSentences(Dictionary* dict, FILE* output_file, int8_t max_depth)
 {
 	if (impl->parent != nullptr) {
 		throw std::invalid_argument("printFoundSentences should be called on the parent database");
@@ -868,7 +893,7 @@ void Database::printFoundSentences(Dictionary* dict, FILE* output_file)
 	TxnContainer txn = beginTransaction();
 
 	vector<Job> found_sentence_jobs;
-	getFoundSentenceJobs(found_sentence_jobs, txn.txn);
+	getFoundSentenceJobs(found_sentence_jobs, txn.txn, max_depth);
 	//cerr << "Found " << found_sentence_jobs.size() << " sentence jobs in parent database " << db_name << endl;
 
 	for (const auto& job : found_sentence_jobs) {
@@ -881,7 +906,8 @@ void Database::printFoundSentences(Dictionary* dict, FILE* output_file)
 			dict,
 			indices,
 			txn.txn,
-			output_file
+			output_file,
+			max_depth
 		);
 	}
 
@@ -907,6 +933,7 @@ void rowToJob(sqlite3_stmt* stmt, job::Job& j)
 	}
 
 	j.finished = sqlite3_column_int(stmt, 4) != 0;
+	j.depth = sqlite3_column_int(stmt, 5);
 }
 
 int64_t Database::getUnfinishedJobs(int64_t length, Job* buffer)
@@ -1098,7 +1125,7 @@ checkTxn(txn);
 		"UPDATE job "
 		"SET finished = 1 "
 		"WHERE finished = 0 "
-		"RETURNING job_id, parent_job_id, frequency_map, start, finished "
+		"RETURNING job_id, parent_job_id, frequency_map, start, finished, depth "
 		"LIMIT " + std::to_string(length);
 
 
@@ -1203,7 +1230,7 @@ checkTxn(txn);
 		"UPDATE job "
 		"SET finished = 1 "
 		"WHERE finished = 0 AND job_id > 0 AND start >= 0 "
-		"RETURNING job_id, parent_job_id, frequency_map, start, finished "
+		"RETURNING job_id, parent_job_id, frequency_map, start, finished, depth "
 		"LIMIT " + std::to_string(length);
 
 
@@ -1256,7 +1283,7 @@ job::Job Database::getJob(JobID_t id, Txn* txn)
 checkTxn(txn);
 
 	const char* select_sql =
-		"SELECT job_id, parent_job_id, frequency_map, start, finished "
+		"SELECT job_id, parent_job_id, frequency_map, start, finished, depth "
 		"FROM job "
 		"WHERE job_id = ?";
 

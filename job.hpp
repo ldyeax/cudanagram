@@ -23,13 +23,14 @@ namespace job {
 		FrequencyMapIndex_t start;
 		bool finished;
 		bool is_sentence;
+		int8_t depth;
 
 		void print()
 		{
 			fprintf(stderr, "Job print\n");
 			fprintf(stderr, "Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
 			frequency_map.print();
-			fprintf(stderr, " start=%d finished=%d is_sentence=%d\n", start, finished, is_sentence);
+			fprintf(stderr, " start=%d finished=%d is_sentence=%d depth=%d\n", start, finished, is_sentence, depth);
 			fflush(stderr);
 		}
 
@@ -37,7 +38,7 @@ namespace job {
 		{
 			printf("Job %ld: parent_job_id=%ld frequency_map=", job_id, parent_job_id);
 			frequency_map.d_print();
-			printf(" start=%d finished=%d is_sentence=%d\n", start, finished, is_sentence);
+			printf(" start=%d finished=%d is_sentence=%d depth=%d\n", start, finished, is_sentence, depth);
 		}
 	};
 }

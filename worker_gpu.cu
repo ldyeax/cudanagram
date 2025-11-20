@@ -153,7 +153,7 @@ private:
 		std::thread h_thread;
 public:
 		int device_id;
-		
+
 		virtual void writeNewJobsToDatabase(database::Txn* txn) override
 		{
 		}
@@ -587,11 +587,14 @@ public:
 		Worker_GPU(
 			int p_device_id,
 			Dictionary* p_dict,
-			Database* p_existing_database
+			Database* p_existing_database,
+			int8_t max_depth
 		)
 		: Worker(
 			p_dict,
-			p_existing_database
+			p_existing_database,
+			-1,
+			max_depth
 		)
 		{
 			device_id = p_device_id;
@@ -603,14 +606,16 @@ public:
 			Job* p_initial_jobs,
 			int64_t p_num_initial_jobs,
 			shared_ptr<vector<Job>> non_sentence_finished_jobs,
-			int memory_config = -1
+			int memory_config = -1,
+			int8_t max_depth = -1
 		)
 		: Worker(
 			p_dict,
 			p_initial_jobs,
 			p_num_initial_jobs,
 			non_sentence_finished_jobs,
-			memory_config
+			memory_config,
+			max_depth
 		)
 		{
 			device_id = p_device_id;
@@ -648,7 +653,7 @@ public:
 			return deviceCount();
 		}
 		virtual int64_t getNumJobsToGive() override
-		{	
+		{
 			// Only give each GPU 1 job for now, until performance improves
 			return deviceCount();
 		}

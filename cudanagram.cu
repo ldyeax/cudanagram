@@ -57,7 +57,8 @@ int printUsage(int argc, char** argv)
 		<< "\t\t[--memory-db] (use memory db for all workers)" << endl
 		<< "\t\t[--gpu-memory-db] (use memory db for gpu workers)" << endl
 		<< "\t\t[--delay-sentences] (delay writing sentences to files)" << endl
-		<< "\t\t[--resume]" << endl;
+		<< "\t\t[--resume]" << endl
+		<< "\t\t[--depth] <depth>" << endl;
 	return 1;
 }
 
@@ -77,6 +78,7 @@ int main(int argc, char** argv)
 	//bool print_dict = false;
 	string dict_filename = "dictionary.txt";
 	bool resume = false;
+	int8_t max_depth = -1;
 	for (int i = 1; i < argc; i++) {
 		string arg(argv[i]);
 		cerr << "Arg " << i << ": " << arg << endl;
@@ -122,13 +124,20 @@ int main(int argc, char** argv)
 		else if (arg == "--delay-sentences") {
 			worker::delay_sentences = true;
 		}
-		else if (input == "") {
-			input = arg;
-		}
 		else if (arg == "--resume") {
 			resume = true;
 			cerr << "Set resume to " << resume << endl;
 		}
+		else if (arg == "--max-depth" && i + 1 < argc) {
+			max_depth = std::stoi(argv[i + 1]);
+			cerr << "Setting max_depth = "
+				<< (int)max_depth << endl;
+			i++;
+		}
+		else if (input == "") {
+			input = arg;
+		}
+
 		else {
 			return printUsage(argc, argv);
 		}
@@ -138,7 +147,8 @@ int main(int argc, char** argv)
 		use_cpu,
 		use_gpu,
 		dict_filename,
-		resume
+		resume,
+		max_depth
 	);
 
 	return 0;
