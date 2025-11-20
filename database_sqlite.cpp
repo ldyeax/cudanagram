@@ -246,17 +246,22 @@ throw;
 }
 
 const char* sqlite_db_pragmas =
-	"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
+	"PRAGMA page_size = 4096;"  // Larger page size for bulk operations - must be first!
+	//"PRAGMA page_size = 32768;"  // Larger page size for bulk operations - must be first!
 	"PRAGMA journal_mode = OFF;"  // No journal for maximum speed
 	"PRAGMA synchronous = OFF;"  // No fsync - data loss possible on crash
-	"PRAGMA temp_store = MEMORY;"  // Keep temp tables in memory
-	"PRAGMA cache_size = -2000000;"  // 2GB cache
-	"PRAGMA mmap_size = 2147483648;"  // 2GB memory-mapped I/O
+	//"PRAGMA temp_store = MEMORY;"  // Keep temp tables in memory
+	"PRAGMA temp_store = FILE;"  // Keep temp tables in memory
+	// "PRAGMA cache_size = -2000000;"  // 2GB cache
+	"PRAGMA cache_size = -200000;"  // 200MB cache
+	"PRAGMA mmap_size = 0;"  // 2GB memory-mapped I/O
 	"PRAGMA locking_mode = EXCLUSIVE;"  // No lock contention
 	"PRAGMA auto_vacuum = NONE;"  // Disable auto-vacuum overhead
 	"PRAGMA count_changes = OFF;"  // Don't count changes
 	"PRAGMA query_only = OFF;"  // Allow writes
 	"PRAGMA read_uncommitted = ON;"  // Allow dirty reads (single connection so safe)
+	"PRAGMA soft_heap_limit = 104857600;"  // 100MB soft limit
+	"PRAGMA hard_heap_limit = 209715200;"  // 200MB hard limit
 ;
 void Database::create_db()
 {
